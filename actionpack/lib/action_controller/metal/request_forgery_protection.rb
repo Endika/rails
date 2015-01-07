@@ -29,14 +29,7 @@ module ActionController #:nodoc:
   # you're building an API you'll need something like:
   #
   #   class ApplicationController < ActionController::Base
-  #     protect_from_forgery
-  #     skip_before_action :verify_authenticity_token, if: :json_request?
-  #
-  #     protected
-  #
-  #     def json_request?
-  #       request.format.json?
-  #     end
+  #     protect_from_forgery unless: -> { request.format.json? }
   #   end
   #
   # CSRF protection is turned on with the <tt>protect_from_forgery</tt> method,
@@ -87,12 +80,13 @@ module ActionController #:nodoc:
       #   class FooController < ApplicationController
       #     protect_from_forgery except: :index
       #
-      # You can disable CSRF protection on controller by skipping the verification before_action:
+      # You can disable forgery protection on controller by skipping the verification before_action:
       #   skip_before_action :verify_authenticity_token
       #
       # Valid Options:
       #
-      # * <tt>:only/:except</tt> - Passed to the <tt>before_action</tt> call. Set which actions are verified.
+      # * <tt>:only/:except</tt> - Only apply forgery protection to a subset of actions. Like <tt>only: [ :create, :create_all ]</tt>.
+      # * <tt>:if/:unless</tt> - Turn off the forgery protection entirely depending on the passed proc or method reference.
       # * <tt>:with</tt> - Set the method to handle unverified request.
       #
       # Valid unverified request handling methods are:
@@ -209,6 +203,7 @@ module ActionController #:nodoc:
         forgery_protection_strategy.new(self).handle_unverified_request
       end
 
+      #:nodoc:
       CROSS_ORIGIN_JAVASCRIPT_WARNING = "Security warning: an embedded " \
         "<script> tag on another site requested protected JavaScript. " \
         "If you know what you're doing, go ahead and disable forgery " \

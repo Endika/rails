@@ -132,6 +132,7 @@ module ActiveRecord
       #   Make a temporary table.
       # [<tt>:force</tt>]
       #   Set to true to drop the table before creating it.
+      #   Set to +:cascade+ to drop dependent objects as well.
       #   Defaults to false.
       # [<tt>:as</tt>]
       #   SQL to use to generate the table. When this option is used, the block is
@@ -203,7 +204,17 @@ module ActiveRecord
         end
 
         result = execute schema_creation.accept td
-        td.indexes.each_pair { |c, o| add_index(table_name, c, o) } unless supports_indexes_in_create?
+
+        unless supports_indexes_in_create?
+          td.indexes.each_pair do |column_name, index_options|
+            add_index(table_name, column_name, index_options)
+          end
+        end
+
+        td.foreign_keys.each_pair do |other_table_name, foreign_key_options|
+          add_foreign_key(table_name, other_table_name, foreign_key_options)
+        end
+
         result
       end
 
@@ -361,8 +372,12 @@ module ActiveRecord
 
       # Drops a table from the database.
       #
-      # Although this command ignores +options+ and the block if one is given, it can be helpful
-      # to provide these in a migration's +change+ method so it can be reverted.
+      # [<tt>:force</tt>]
+      #   Set to +:cascade+ to drop dependent objects as well.
+      #   Defaults to false.
+      #
+      # Although this command ignores most +options+ and the block if one is given,
+      # it can be helpful to provide these in a migration's +change+ method so it can be reverted.
       # In that case, +options+ and the block will be used by create_table.
       def drop_table(table_name, options = {})
         execute "DROP TABLE #{quote_table_name(table_name)}"
@@ -571,9 +586,8 @@ module ActiveRecord
       #   rename_index :people, 'index_people_on_last_name', 'index_users_on_last_name'
       #
       def rename_index(table_name, old_name, new_name)
-        if new_name.length > allowed_index_name_length
-          raise ArgumentError, "Index name '#{new_name}' on table '#{table_name}' is too long; the limit is #{allowed_index_name_length} characters"
-        end
+        validate_index_length!(table_name, new_name)
+
         # this is a naive implementation; some DBs may support this more efficiently (Postgres, for instance)
         old_index_def = indexes(table_name).detect { |i| i.name == old_name }
         return unless old_index_def
@@ -622,17 +636,16 @@ module ActiveRecord
       #
       #   add_belongs_to(:products, :supplier, polymorphic: true)
       #
-      # ====== Create a supplier_id, supplier_type columns and appropriate index
+      # ====== Create supplier_id, supplier_type columns and appropriate index
       #
       #   add_reference(:products, :supplier, polymorphic: true, index: true)
       #
-      def add_reference(table_name, ref_name, options = {})
-        polymorphic = options.delete(:polymorphic)
-        index_options = options.delete(:index)
-        type = options.delete(:type) || :integer
-        add_column(table_name, "#{ref_name}_id", type, options)
-        add_column(table_name, "#{ref_name}_type", :string, polymorphic.is_a?(Hash) ? polymorphic : options) if polymorphic
-        add_index(table_name, polymorphic ? %w[type id].map{ |t| "#{ref_name}_#{t}" } : "#{ref_name}_id", index_options.is_a?(Hash) ? index_options : {}) if index_options
+      # ====== Create a supplier_id column and appropriate foreign key
+      #
+      #   add_reference(:products, :supplier, foreign_key: true)
+      #
+      def add_reference(table_name, *args)
+        ReferenceDefinition.new(*args).add_to(update_table_definition(table_name, self))
       end
       alias :add_belongs_to :add_reference
 
@@ -838,14 +851,14 @@ module ActiveRecord
         columns
       end
 
-      include TimestampDefaultDeprecation
       # Adds timestamps (+created_at+ and +updated_at+) columns to +table_name+.
       # Additional options (like <tt>null: false</tt>) are forwarded to #add_column.
       #
       #   add_timestamps(:suppliers, null: false)
       #
       def add_timestamps(table_name, options = {})
-        emit_warning_if_null_unspecified(options)
+        options[:null] = false if options[:null].nil?
+
         add_column table_name, :created_at, :datetime, options
         add_column table_name, :updated_at, :datetime, options
       end
@@ -968,17 +981,23 @@ module ActiveRecord
         end
 
       private
-      def create_table_definition(name, temporary, options, as = nil)
+      def create_table_definition(name, temporary = false, options = nil, as = nil)
         TableDefinition.new native_database_types, name, temporary, options, as
       end
 
       def create_alter_table(name)
-        AlterTable.new create_table_definition(name, false, {})
+        AlterTable.new create_table_definition(name)
       end
 
       def foreign_key_name(table_name, options) # :nodoc:
         options.fetch(:name) do
           "fk_rails_#{SecureRandom.hex(5)}"
+        end
+      end
+
+      def validate_index_length!(table_name, new_name)
+        if new_name.length > allowed_index_name_length
+          raise ArgumentError, "Index name '#{new_name}' on table '#{table_name}' is too long; the limit is #{allowed_index_name_length} characters"
         end
       end
     end

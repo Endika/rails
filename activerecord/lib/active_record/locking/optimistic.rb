@@ -11,7 +11,7 @@ module ActiveRecord
     #
     # == Usage
     #
-    # Active Records support optimistic locking if the field +lock_version+ is present. Each update to the
+    # Active Record supports optimistic locking if the +lock_version+ field is present. Each update to the
     # record increments the +lock_version+ column and the locking facilities ensure that records instantiated twice
     # will let the last one saved raise a +StaleObjectError+ if the first was also updated. Example:
     #
@@ -80,16 +80,14 @@ module ActiveRecord
           begin
             relation = self.class.unscoped
 
-            stmt = relation.where(
-              relation.table[self.class.primary_key].eq(id).and(
-                relation.table[lock_col].eq(self.class.quote_value(previous_lock_value, column_for_attribute(lock_col)))
-              )
-            ).arel.compile_update(
-              arel_attributes_with_values_for_update(attribute_names),
-              self.class.primary_key
+            affected_rows = relation.where(
+              self.class.primary_key => id,
+              lock_col => previous_lock_value,
+            ).update_all(
+              attribute_names.map do |name|
+                [name, _read_attribute(name)]
+              end.to_h
             )
-
-            affected_rows = self.class.connection.update stmt
 
             unless affected_rows == 1
               raise ActiveRecord::StaleObjectError.new(self, "update")

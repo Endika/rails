@@ -1,6 +1,5 @@
 require 'erb'
 require 'active_support/core_ext/kernel/singleton_class'
-require 'active_support/deprecation'
 
 class ERB
   module Util
@@ -150,7 +149,11 @@ module ActiveSupport #:nodoc:
       else
         if html_safe?
           new_safe_buffer = super
-          new_safe_buffer.instance_variable_set :@html_safe, true
+
+          if new_safe_buffer
+            new_safe_buffer.instance_variable_set :@html_safe, true
+          end
+
           new_safe_buffer
         else
           to_str[*args]
@@ -184,11 +187,6 @@ module ActiveSupport #:nodoc:
 
     def prepend(value)
       super(html_escape_interpolated_argument(value))
-    end
-
-    def prepend!(value)
-      ActiveSupport::Deprecation.deprecation_warning "ActiveSupport::SafeBuffer#prepend!", :prepend
-      prepend value
     end
 
     def +(other)

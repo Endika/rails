@@ -105,6 +105,18 @@ module ActionDispatch
       @request_method ||= check_method(env["REQUEST_METHOD"])
     end
 
+    def routes # :nodoc:
+      env["action_dispatch.routes".freeze]
+    end
+
+    def original_script_name # :nodoc:
+      env['ORIGINAL_SCRIPT_NAME'.freeze]
+    end
+
+    def engine_script_name(_routes) # :nodoc:
+      env["ROUTES_#{_routes.object_id}_SCRIPT_NAME"]
+    end
+
     def request_method=(request_method) #:nodoc:
       if check_method(request_method)
         @request_method = env["REQUEST_METHOD"] = request_method
@@ -323,15 +335,6 @@ module ActionDispatch
     # True if the request came from localhost, 127.0.0.1.
     def local?
       LOCALHOST =~ remote_addr && LOCALHOST =~ remote_ip
-    end
-
-    # Extracted into ActionDispatch::Request::Utils.deep_munge, but kept here for backwards compatibility.
-    def deep_munge(hash)
-      ActiveSupport::Deprecation.warn(
-        'This method has been extracted into `ActionDispatch::Request::Utils.deep_munge`. Please start using that instead.'
-      )
-
-      Utils.deep_munge(hash)
     end
 
     protected

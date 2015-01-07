@@ -93,8 +93,7 @@ module ActiveRecord
       #    joins # =>  []
       #
       def initialize(base, associations, joins)
-        @alias_tracker = AliasTracker.create(base.connection, joins)
-        @alias_tracker.aliased_table_for(base.table_name, base.table_name) # Updates the count for base.table_name to 1
+        @alias_tracker = AliasTracker.create_with_joins(base.connection, base.table_name, joins, base.type_caster)
         tree = self.class.make_tree associations
         @join_root = JoinBase.new base, build(tree, base)
         @join_root.children.each { |child| construct_tables! @join_root, child }
@@ -257,6 +256,7 @@ module ActiveRecord
             construct(model, node, row, rs, seen, model_cache, aliases)
           else
             model = construct_model(ar_parent, node, row, model_cache, id, aliases)
+            model.readonly!
             seen[parent.base_klass][primary_id][node.base_klass][id] = model
             construct(model, node, row, rs, seen, model_cache, aliases)
           end

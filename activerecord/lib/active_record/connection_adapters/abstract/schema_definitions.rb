@@ -15,14 +15,14 @@ module ActiveRecord
     # are typically created by methods in TableDefinition, and added to the
     # +columns+ attribute of said TableDefinition object, in order to be used
     # for generating a number of table creation or table changing SQL statements.
-    class ColumnDefinition < Struct.new(:name, :type, :limit, :precision, :scale, :default, :null, :first, :after, :primary_key, :sql_type, :cast_type) #:nodoc:
+    class ColumnDefinition < Struct.new(:name, :type, :limit, :precision, :scale, :default, :null, :first, :after, :auto_increment, :primary_key, :sql_type, :cast_type) #:nodoc:
 
       def primary_key?
         primary_key || type.to_sym == :primary_key
       end
     end
 
-    class ChangeColumnDefinition < Struct.new(:column, :type, :options) #:nodoc:
+    class ChangeColumnDefinition < Struct.new(:column, :name) #:nodoc:
     end
 
     class ForeignKeyDefinition < Struct.new(:from_table, :to_table, :options) #:nodoc:
@@ -56,15 +56,81 @@ module ActiveRecord
       end
     end
 
-    module TimestampDefaultDeprecation # :nodoc:
-      def emit_warning_if_null_unspecified(options)
-        return if options.key?(:null)
+    class ReferenceDefinition # :nodoc:
+      def initialize(
+        name,
+        polymorphic: false,
+        index: false,
+        foreign_key: false,
+        type: :integer,
+        **options
+      )
+        @name = name
+        @polymorphic = polymorphic
+        @index = index
+        @foreign_key = foreign_key
+        @type = type
+        @options = options
 
-        ActiveSupport::Deprecation.warn(<<-MSG.squish)
-          `#timestamp` was called without specifying an option for `null`. In Rails 5,
-          this behavior will change to `null: false`. You should manually specify
-         `null: true` to prevent the behavior of your existing migrations from changing.
-        MSG
+        if polymorphic && foreign_key
+          raise ArgumentError, "Cannot add a foreign key to a polymorphic relation"
+        end
+      end
+
+      def add_to(table)
+        columns.each do |column_options|
+          table.column(*column_options)
+        end
+
+        if index
+          table.index(column_names, index_options)
+        end
+
+        if foreign_key
+          table.foreign_key(foreign_table_name, foreign_key_options)
+        end
+      end
+
+      protected
+
+      attr_reader :name, :polymorphic, :index, :foreign_key, :type, :options
+
+      private
+
+      def as_options(value, default = {})
+        if value.is_a?(Hash)
+          value
+        else
+          default
+        end
+      end
+
+      def polymorphic_options
+        as_options(polymorphic, options)
+      end
+
+      def index_options
+        as_options(index)
+      end
+
+      def foreign_key_options
+        as_options(foreign_key)
+      end
+
+      def columns
+        result = [["#{name}_id", type, options]]
+        if polymorphic
+          result.unshift(["#{name}_type", :string, polymorphic_options])
+        end
+        result
+      end
+
+      def column_names
+        columns.map(&:first)
+      end
+
+      def foreign_table_name
+        name.to_s.pluralize
       end
     end
 
@@ -89,16 +155,15 @@ module ActiveRecord
     # The table definitions
     # The Columns are stored as a ColumnDefinition in the +columns+ attribute.
     class TableDefinition
-      include TimestampDefaultDeprecation
-
       # An array of ColumnDefinition objects, representing the column changes
       # that have been defined.
       attr_accessor :indexes
-      attr_reader :name, :temporary, :options, :as
+      attr_reader :name, :temporary, :options, :as, :foreign_keys
 
       def initialize(types, name, temporary, options, as = nil)
         @columns_hash = {}
         @indexes = {}
+        @foreign_keys = {}
         @native = types
         @temporary = temporary
         @options = options
@@ -286,35 +351,37 @@ module ActiveRecord
         indexes[column_name] = options
       end
 
+      def foreign_key(table_name, options = {}) # :nodoc:
+        foreign_keys[table_name] = options
+      end
+
       # Appends <tt>:datetime</tt> columns <tt>:created_at</tt> and
       # <tt>:updated_at</tt> to the table. See SchemaStatements#add_timestamps
       #
       #   t.timestamps null: false
       def timestamps(*args)
         options = args.extract_options!
-        emit_warning_if_null_unspecified(options)
+
+        options[:null] = false if options[:null].nil?
+
         column(:created_at, :datetime, options)
         column(:updated_at, :datetime, options)
       end
 
-      # Adds a reference. Optionally adds a +type+ column, if <tt>:polymorphic</tt> option is provided.
-      # <tt>references</tt> and <tt>belongs_to</tt> are acceptable. The reference column will be an +integer+
-      # by default, the <tt>:type</tt> option can be used to specify a different type.
+      # Adds a reference. Optionally adds a +type+ column, if the
+      # +:polymorphic+ option is provided. +references+ and +belongs_to+
+      # are acceptable. The reference column will be an +integer+ by default,
+      # the +:type+ option can be used to specify a different type. A foreign
+      # key will be created if the +:foreign_key+ option is passed.
       #
       #  t.references(:user)
       #  t.references(:user, type: "string")
       #  t.belongs_to(:supplier, polymorphic: true)
       #
       # See SchemaStatements#add_reference
-      def references(*args)
-        options = args.extract_options!
-        polymorphic = options.delete(:polymorphic)
-        index_options = options.delete(:index)
-        type = options.delete(:type) || :integer
+      def references(*args, **options)
         args.each do |col|
-          column("#{col}_id", type, options)
-          column("#{col}_type", :string, polymorphic.is_a?(Hash) ? polymorphic : options) if polymorphic
-          index(polymorphic ? %w(type id).map { |t| "#{col}_#{t}" } : "#{col}_id", index_options.is_a?(Hash) ? index_options : {}) if index_options
+          ReferenceDefinition.new(col, **options).add_to(self)
         end
       end
       alias :belongs_to :references
@@ -333,6 +400,7 @@ module ActiveRecord
         column.null        = options[:null]
         column.first       = options[:first]
         column.after       = options[:after]
+        column.auto_increment = options[:auto_increment]
         column.primary_key = type == :primary_key || options[:primary_key]
         column
       end
@@ -422,33 +490,36 @@ module ActiveRecord
       end
 
       # Adds a new column to the named table.
-      # See TableDefinition#column for details of the options you can use.
       #
-      # ====== Creating a simple column
       #  t.column(:name, :string)
+      #
+      # See TableDefinition#column for details of the options you can use.
       def column(column_name, type, options = {})
         @base.add_column(name, column_name, type, options)
       end
 
-      # Checks to see if a column exists. See SchemaStatements#column_exists?
+      # Checks to see if a column exists.
+      #
+      # See SchemaStatements#column_exists?
       def column_exists?(column_name, type = nil, options = {})
         @base.column_exists?(name, column_name, type, options)
       end
 
       # Adds a new index to the table. +column_name+ can be a single Symbol, or
-      # an Array of Symbols. See SchemaStatements#add_index
+      # an Array of Symbols.
       #
-      # ====== Creating a simple index
       #  t.index(:name)
-      # ====== Creating a unique index
       #  t.index([:branch_id, :party_id], unique: true)
-      # ====== Creating a named index
       #  t.index([:branch_id, :party_id], unique: true, name: 'by_branch_party')
+      #
+      # See SchemaStatements#add_index for details of the options you can use.
       def index(column_name, options = {})
         @base.add_index(name, column_name, options)
       end
 
-      # Checks to see if an index exists. See SchemaStatements#index_exists?
+      # Checks to see if an index exists.
+      #
+      # See SchemaStatements#index_exists?
       def index_exists?(column_name, options = {})
         @base.index_exists?(name, column_name, options)
       end
@@ -456,30 +527,37 @@ module ActiveRecord
       # Renames the given index on the table.
       #
       #  t.rename_index(:user_id, :account_id)
+      #
+      # See SchemaStatements#rename_index
       def rename_index(index_name, new_index_name)
         @base.rename_index(name, index_name, new_index_name)
       end
 
-      # Adds timestamps (+created_at+ and +updated_at+) columns to the table. See SchemaStatements#add_timestamps
+      # Adds timestamps (+created_at+ and +updated_at+) columns to the table.
       #
-      #  t.timestamps null: false
+      #  t.timestamps(null: false)
+      #
+      # See SchemaStatements#add_timestamps
       def timestamps(options = {})
         @base.add_timestamps(name, options)
       end
 
       # Changes the column's definition according to the new options.
-      # See TableDefinition#column for details of the options you can use.
       #
       #  t.change(:name, :string, limit: 80)
       #  t.change(:description, :text)
+      #
+      # See TableDefinition#column for details of the options you can use.
       def change(column_name, type, options = {})
         @base.change_column(name, column_name, type, options)
       end
 
-      # Sets a new default value for a column. See SchemaStatements#change_column_default
+      # Sets a new default value for a column.
       #
       #  t.change_default(:qualification, 'new')
       #  t.change_default(:authorized, 1)
+      #
+      # See SchemaStatements#change_column_default
       def change_default(column_name, default)
         @base.change_column_default(name, column_name, default)
       end
@@ -488,20 +566,19 @@ module ActiveRecord
       #
       #  t.remove(:qualification)
       #  t.remove(:qualification, :experience)
+      #
+      # See SchemaStatements#remove_columns
       def remove(*column_names)
         @base.remove_columns(name, *column_names)
       end
 
       # Removes the given index from the table.
       #
-      # ====== Remove the index_table_name_on_column in the table_name table
-      #   t.remove_index :column
-      # ====== Remove the index named index_table_name_on_branch_id in the table_name table
-      #   t.remove_index column: :branch_id
-      # ====== Remove the index named index_table_name_on_branch_id_and_party_id in the table_name table
-      #   t.remove_index column: [:branch_id, :party_id]
-      # ====== Remove the index named by_branch_party in the table_name table
-      #   t.remove_index name: :by_branch_party
+      #   t.remove_index(:branch_id)
+      #   t.remove_index(column: [:branch_id, :party_id])
+      #   t.remove_index(name: :by_branch_party)
+      #
+      # See SchemaStatements#remove_index
       def remove_index(options = {})
         @base.remove_index(name, options)
       end
@@ -509,6 +586,8 @@ module ActiveRecord
       # Removes the timestamp columns (+created_at+ and +updated_at+) from the table.
       #
       #  t.remove_timestamps
+      #
+      # See SchemaStatements#remove_timestamps
       def remove_timestamps(options = {})
         @base.remove_timestamps(name, options)
       end
@@ -516,17 +595,19 @@ module ActiveRecord
       # Renames a column.
       #
       #  t.rename(:description, :name)
+      #
+      # See SchemaStatements#rename_column
       def rename(column_name, new_column_name)
         @base.rename_column(name, column_name, new_column_name)
       end
 
-      # Adds a reference. Optionally adds a +type+ column, if <tt>:polymorphic</tt> option is provided.
-      # <tt>references</tt> and <tt>belongs_to</tt> are acceptable. The reference column will be an +integer+
-      # by default, the <tt>:type</tt> option can be used to specify a different type.
+      # Adds a reference. Optionally adds a +type+ column, if
+      # <tt>:polymorphic</tt> option is provided.
       #
       #  t.references(:user)
       #  t.references(:user, type: "string")
       #  t.belongs_to(:supplier, polymorphic: true)
+      #  t.belongs_to(:supplier, foreign_key: true)
       #
       # See SchemaStatements#add_reference
       def references(*args)
@@ -538,7 +619,6 @@ module ActiveRecord
       alias :belongs_to :references
 
       # Removes a reference. Optionally removes a +type+ column.
-      # <tt>remove_references</tt> and <tt>remove_belongs_to</tt> are acceptable.
       #
       #  t.remove_references(:user)
       #  t.remove_belongs_to(:supplier, polymorphic: true)
@@ -552,10 +632,12 @@ module ActiveRecord
       end
       alias :remove_belongs_to :remove_references
 
-      # Adds a column or columns of a specified type
+      # Adds a column or columns of a specified type.
       #
       #  t.string(:goat)
       #  t.string(:goat, :sheep)
+      #
+      # See SchemaStatements#add_column
       [:string, :text, :integer, :float, :decimal, :datetime, :timestamp, :time, :date, :binary, :boolean].each do |column_type|
         define_method column_type do |*args|
           options = args.extract_options!
@@ -563,6 +645,10 @@ module ActiveRecord
             @base.add_column(name, column_name, column_type, options)
           end
         end
+      end
+
+      def foreign_key(*args) # :nodoc:
+        @base.add_foreign_key(name, *args)
       end
 
       private

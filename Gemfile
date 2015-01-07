@@ -11,10 +11,10 @@ gem 'rake', '>= 10.3'
 gem 'mocha', '~> 0.14', require: false
 
 gem 'rack-cache', '~> 1.2'
-gem 'jquery-rails', github: 'rails/jquery-rails'
+gem 'jquery-rails', github: 'rails/jquery-rails', branch: 'master'
 gem 'coffee-rails', '~> 4.1.0'
 gem 'turbolinks'
-gem 'arel', github: 'rails/arel'
+gem 'arel', github: 'rails/arel', branch: 'master'
 
 # require: false so bcrypt is loaded only when has_secure_password is used.
 # This is to avoid ActiveModel (and by extension the entire framework)
@@ -27,7 +27,7 @@ gem 'uglifier', '>= 1.3.0', require: false
 
 group :doc do
   gem 'sdoc', '~> 0.4.0'
-  gem 'redcarpet', '~> 3.1.2', platforms: :ruby
+  gem 'redcarpet', '~> 3.2.2', platforms: :ruby
   gem 'w3c_validators'
   gem 'kindlerb'
 end
@@ -68,8 +68,8 @@ group :test do
     gem 'stackprof'
   end
 
-  # platforms :mri_19, :mri_20 do
-  #   gem 'debugger'
+  # platforms :mri do
+  #   gem 'byebug'
   # end
 
   gem 'benchmark-ips'

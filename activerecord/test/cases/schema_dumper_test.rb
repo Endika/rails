@@ -40,6 +40,11 @@ class SchemaDumperTest < ActiveRecord::TestCase
     assert_no_match %r{create_table "schema_migrations"}, output
   end
 
+  def test_schema_dump_uses_force_cascade_on_create_table
+    output = dump_table_schema "authors"
+    assert_match %r{create_table "authors", force: :cascade}, output
+  end
+
   def test_schema_dump_excludes_sqlite_sequence
     output = standard_dump
     assert_no_match %r{create_table "sqlite_sequence"}, output
@@ -227,6 +232,13 @@ class SchemaDumperTest < ActiveRecord::TestCase
     end
   end
 
+  if mysql_56?
+    def test_schema_dump_includes_datetime_precision
+      output = standard_dump
+      assert_match %r{t.datetime\s+"written_on",\s+precision: 6$}, output
+    end
+  end
+
   def test_schema_dump_includes_decimal_options
     output = dump_all_table_schema([/^[^n]/])
     assert_match %r{precision: 3,[[:space:]]+scale: 2,[[:space:]]+default: 2.78}, output
@@ -260,6 +272,8 @@ class SchemaDumperTest < ActiveRecord::TestCase
     # Oracle supports precision up to 38 and it identifies decimals with scale 0 as integers
     if current_adapter?(:OracleAdapter)
       assert_match %r{t.integer\s+"atoms_in_universe",\s+precision: 38}, output
+    elsif current_adapter?(:FbAdapter)
+      assert_match %r{t.integer\s+"atoms_in_universe",\s+precision: 18}, output
     else
       assert_match %r{t.decimal\s+"atoms_in_universe",\s+precision: 55}, output
     end

@@ -6,6 +6,7 @@ module ActiveRecord
     # If the association has a <tt>:through</tt> option further specialization
     # is provided by its child HasManyThroughAssociation.
     class HasManyAssociation < CollectionAssociation #:nodoc:
+      include ForeignAssociation
 
       def handle_dependency
         case options[:dependent]
@@ -16,7 +17,7 @@ module ActiveRecord
           unless empty?
             record = klass.human_attribute_name(reflection.name).downcase
             owner.errors.add(:base, :"restrict_dependent_destroy.many", record: record)
-            false
+            throw(:abort)
           end
 
         else
@@ -150,14 +151,6 @@ module ActiveRecord
           else
             scope = self.scope.where(reflection.klass.primary_key => records)
             update_counter(-delete_count(method, scope))
-          end
-        end
-
-        def foreign_key_present?
-          if reflection.klass.primary_key
-            owner.attribute_present?(reflection.association_primary_key)
-          else
-            false
           end
         end
 

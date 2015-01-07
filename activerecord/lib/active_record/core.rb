@@ -87,13 +87,6 @@ module ActiveRecord
 
       mattr_accessor :maintain_test_schema, instance_accessor: false
 
-      def self.disable_implicit_join_references=(value)
-        ActiveSupport::Deprecation.warn(<<-MSG.squish)
-          Implicit join references were removed with Rails 4.1.
-          Make sure to remove this configuration because it does nothing.
-        MSG
-      end
-
       class_attribute :default_connection_handler, instance_writer: false
       class_attribute :find_by_statement_cache
 
@@ -131,6 +124,7 @@ module ActiveRecord
         return super if block_given? ||
                         primary_key.nil? ||
                         default_scopes.any? ||
+                        current_scope ||
                         columns_hash.include?(inheritance_column) ||
                         ids.first.kind_of?(Array)
 
@@ -234,7 +228,7 @@ module ActiveRecord
       #     scope :published_and_commented, -> { published.and(self.arel_table[:comments_count].gt(0)) }
       #   end
       def arel_table # :nodoc:
-        @arel_table ||= Arel::Table.new(table_name)
+        @arel_table ||= Arel::Table.new(table_name, type_caster: type_caster)
       end
 
       # Returns the Arel engine.
@@ -247,16 +241,28 @@ module ActiveRecord
           end
       end
 
+      def predicate_builder # :nodoc:
+        @predicate_builder ||= PredicateBuilder.new(table_metadata)
+      end
+
+      def type_caster # :nodoc:
+        TypeCaster::Map.new(self)
+      end
+
       private
 
-      def relation #:nodoc:
-        relation = Relation.create(self, arel_table)
+      def relation # :nodoc:
+        relation = Relation.create(self, arel_table, predicate_builder)
 
         if finder_needs_type_condition?
           relation.where(type_condition).create_with(inheritance_column.to_sym => sti_name)
         else
           relation
         end
+      end
+
+      def table_metadata # :nodoc:
+        TableMetadata.new(self, arel_table)
       end
     end
 
@@ -270,11 +276,11 @@ module ActiveRecord
     #   User.new(first_name: 'Jamie')
     def initialize(attributes = nil, options = {})
       @attributes = self.class._default_attributes.dup
+      self.class.define_attribute_methods
 
       init_internals
       initialize_internals_callback
 
-      self.class.define_attribute_methods
       # +options+ argument is only needed to make protected_attributes gem easier to hook.
       # Remove it when we drop support to this gem.
       init_attributes(attributes, options) if attributes

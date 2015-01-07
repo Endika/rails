@@ -125,11 +125,26 @@ module ActiveRecord
         PostgreSQL::SchemaCreation.new self
       end
 
+      def column_spec_for_primary_key(column)
+        spec = {}
+        if column.serial?
+          return unless column.sql_type == 'bigint'
+          spec[:id] = ':bigserial'
+        elsif column.type == :uuid
+          spec[:id] = ':uuid'
+          spec[:default] = column.default_function.inspect
+        else
+          spec[:id] = column.type.inspect
+          spec.merge!(prepare_column_options(column).delete_if { |key, _| [:name, :type, :null].include?(key) })
+        end
+        spec
+      end
+
       # Adds +:array+ option to the default set provided by the
       # AbstractAdapter
       def prepare_column_options(column) # :nodoc:
         spec = super
-        spec[:array] = 'true' if column.respond_to?(:array) && column.array
+        spec[:array] = 'true' if column.array?
         spec[:default] = "\"#{column.default_function}\"" if column.default_function
         spec
       end
@@ -445,8 +460,8 @@ module ActiveRecord
 
         def initialize_type_map(m) # :nodoc:
           register_class_with_limit m, 'int2', OID::Integer
-          m.alias_type 'int4', 'int2'
-          m.alias_type 'int8', 'int2'
+          register_class_with_limit m, 'int4', OID::Integer
+          register_class_with_limit m, 'int8', OID::Integer
           m.alias_type 'oid', 'int2'
           m.register_type 'float4', OID::Float.new
           m.alias_type 'float8', 'float4'
@@ -746,7 +761,7 @@ module ActiveRecord
           $1.strip if $1
         end
 
-        def create_table_definition(name, temporary, options, as = nil) # :nodoc:
+        def create_table_definition(name, temporary = false, options = nil, as = nil) # :nodoc:
           PostgreSQL::TableDefinition.new native_database_types, name, temporary, options, as
         end
     end

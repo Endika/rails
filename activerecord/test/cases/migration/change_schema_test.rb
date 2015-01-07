@@ -82,7 +82,7 @@ module ActiveRecord
           columns = connection.columns(:testings)
           array_column = columns.detect { |c| c.name == "foo" }
 
-          assert array_column.array
+          assert array_column.array?
         end
 
         def test_create_table_with_array_column
@@ -93,7 +93,7 @@ module ActiveRecord
           columns = connection.columns(:testings)
           array_column = columns.detect { |c| c.name == "foo" }
 
-          assert array_column.array
+          assert array_column.array?
         end
       end
 
@@ -195,24 +195,8 @@ module ActiveRecord
       end
 
       def test_create_table_with_timestamps_should_create_datetime_columns
-        # FIXME: Remove the silence when we change the default `null` behavior
-        ActiveSupport::Deprecation.silence do
-          connection.create_table table_name do |t|
-            t.timestamps
-          end
-        end
-        created_columns = connection.columns(table_name)
-
-        created_at_column = created_columns.detect {|c| c.name == 'created_at' }
-        updated_at_column = created_columns.detect {|c| c.name == 'updated_at' }
-
-        assert created_at_column.null
-        assert updated_at_column.null
-      end
-
-      def test_create_table_with_timestamps_should_create_datetime_columns_with_options
         connection.create_table table_name do |t|
-          t.timestamps :null => false
+          t.timestamps
         end
         created_columns = connection.columns(table_name)
 
@@ -221,6 +205,19 @@ module ActiveRecord
 
         assert !created_at_column.null
         assert !updated_at_column.null
+      end
+
+      def test_create_table_with_timestamps_should_create_datetime_columns_with_options
+        connection.create_table table_name do |t|
+          t.timestamps null: true
+        end
+        created_columns = connection.columns(table_name)
+
+        created_at_column = created_columns.detect {|c| c.name == 'created_at' }
+        updated_at_column = created_columns.detect {|c| c.name == 'updated_at' }
+
+        assert created_at_column.null
+        assert updated_at_column.null
       end
 
       def test_create_table_without_a_block
@@ -413,6 +410,37 @@ module ActiveRecord
         end
 
         yield
+      end
+    end
+
+    if ActiveRecord::Base.connection.supports_foreign_keys?
+      class ChangeSchemaWithDependentObjectsTest < ActiveRecord::TestCase
+        self.use_transactional_fixtures = false
+
+        setup do
+          @connection = ActiveRecord::Base.connection
+          @connection.create_table :trains
+          @connection.create_table(:wagons) { |t| t.references :train }
+          @connection.add_foreign_key :wagons, :trains
+        end
+
+        teardown do
+          [:wagons, :trains].each do |table|
+            @connection.drop_table(table) if @connection.table_exists?(table)
+          end
+        end
+
+        def test_create_table_with_force_cascade_drops_dependent_objects
+          skip "MySQL > 5.5 does not drop dependent objects with DROP TABLE CASCADE" if current_adapter?(:MysqlAdapter, :Mysql2Adapter)
+          # can't re-create table referenced by foreign key
+          assert_raises(ActiveRecord::StatementInvalid) do
+            @connection.create_table :trains, force: true
+          end
+
+          # can recreate referenced table with force: :cascade
+          @connection.create_table :trains, force: :cascade
+          assert_equal [], @connection.foreign_keys(:wagons)
+        end
       end
     end
   end

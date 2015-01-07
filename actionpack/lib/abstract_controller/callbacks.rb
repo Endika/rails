@@ -9,7 +9,7 @@ module AbstractController
 
     included do
       define_callbacks :process_action,
-                       terminator: ->(controller,_) { controller.response_body },
+                       terminator: ->(controller, result_lambda) { result_lambda.call if result_lambda.is_a?(Proc); controller.response_body },
                        skip_after_callbacks_if_terminated: true
     end
 
@@ -22,10 +22,11 @@ module AbstractController
     end
 
     module ClassMethods
-      # If :only or :except are used, convert the options into the
-      # :unless and :if options of ActiveSupport::Callbacks.
-      # The basic idea is that :only => :index gets converted to
-      # :if => proc {|c| c.action_name == "index" }.
+      # If +:only+ or +:except+ are used, convert the options into the
+      # +:if+ and +:unless+ options of ActiveSupport::Callbacks.
+      #
+      # The basic idea is that <tt>:only => :index</tt> gets converted to
+      # <tt>:if => proc {|c| c.action_name == "index" }</tt>.
       #
       # ==== Options
       # * <tt>only</tt>   - The callback should be run only for this action

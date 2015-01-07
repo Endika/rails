@@ -16,17 +16,17 @@ module ActiveRecord
 
     include FinderMethods, Calculations, SpawnMethods, QueryMethods, Batches, Explain, Delegation
 
-    attr_reader :table, :klass, :loaded
+    attr_reader :table, :klass, :loaded, :predicate_builder
     alias :model :klass
     alias :loaded? :loaded
 
-    def initialize(klass, table, values = {})
+    def initialize(klass, table, predicate_builder, values = {})
       @klass  = klass
       @table  = table
       @values = values
       @offsets = {}
       @loaded = false
-      @predicate_builder = PredicateBuilder.new(klass, table)
+      @predicate_builder = predicate_builder
     end
 
     def initialize_copy(other)
@@ -362,9 +362,21 @@ module ActiveRecord
     #   # Updates multiple records
     #   people = { 1 => { "first_name" => "David" }, 2 => { "first_name" => "Jeremy" } }
     #   Person.update(people.keys, people.values)
-    def update(id, attributes)
+    #
+    #   # Updates multiple records from the result of a relation
+    #   people = Person.where(group: 'expert')
+    #   people.update(group: 'masters')
+    #
+    #   Note: Updating a large number of records will run a
+    #   UPDATE query for each record, which may cause a performance
+    #   issue. So if it is not needed to run callbacks for each update, it is
+    #   preferred to use <tt>update_all</tt> for updating all records using
+    #   a single query.
+    def update(id = :all, attributes)
       if id.is_a?(Array)
         id.map.with_index { |one_id, idx| update(one_id, attributes[idx]) }
+      elsif id == :all
+        to_a.each { |record| record.update(attributes) }
       else
         object = find(id)
         object.update(attributes)
@@ -569,7 +581,7 @@ module ActiveRecord
         [name, binds.fetch(name.to_s) {
           case where.right
           when Array then where.right.map(&:val)
-          else
+          when Arel::Nodes::Casted, Arel::Nodes::Quoted
             where.right.val
           end
         }]
@@ -632,10 +644,6 @@ module ActiveRecord
 
       "#<#{self.class.name} [#{entries.join(', ')}]>"
     end
-
-    protected
-
-    attr_reader :predicate_builder
 
     private
 

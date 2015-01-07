@@ -11,10 +11,11 @@ module Rails
                     :eager_load, :exceptions_app, :file_watcher, :filter_parameters,
                     :force_ssl, :helpers_paths, :logger, :log_formatter, :log_tags,
                     :railties_order, :relative_url_root, :secret_key_base, :secret_token,
-                    :serve_static_assets, :ssl_options, :static_cache_control, :session_options,
+                    :serve_static_files, :ssl_options, :static_cache_control, :session_options,
                     :time_zone, :reload_classes_only_on_change,
                     :beginning_of_week, :filter_redirect, :x
 
+      attr_writer :log_level
       attr_reader :encoding
 
       def initialize(*)
@@ -25,7 +26,7 @@ module Rails
         @filter_parameters             = []
         @filter_redirect               = []
         @helpers_paths                 = []
-        @serve_static_assets           = true
+        @serve_static_files            = true
         @static_cache_control          = nil
         @force_ssl                     = false
         @ssl_options                   = {}
@@ -33,7 +34,6 @@ module Rails
         @session_options               = {}
         @time_zone                     = "UTC"
         @beginning_of_week             = :monday
-        @has_explicit_log_level        = false
         @log_level                     = nil
         @middleware                    = app_middleware
         @generators                    = app_generators
@@ -115,15 +115,6 @@ module Rails
               "Error: #{e.message}"
       rescue => e
         raise e, "Cannot load `Rails.application.database_configuration`:\n#{e.message}", e.backtrace
-      end
-
-      def has_explicit_log_level? # :nodoc:
-        @has_explicit_log_level
-      end
-
-      def log_level=(level)
-        @has_explicit_log_level = !!(level)
-        @log_level = level
       end
 
       def log_level

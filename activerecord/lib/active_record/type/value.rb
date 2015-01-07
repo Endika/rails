@@ -50,6 +50,10 @@ module ActiveRecord
 
       # These predicates are not documented, as I need to look further into
       # their use, and see if they can be removed entirely.
+      def text? # :nodoc:
+        false
+      end
+
       def number? # :nodoc:
         false
       end
@@ -91,8 +95,8 @@ module ActiveRecord
 
       # Convenience method for types which do not need separate type casting
       # behavior for user and database inputs. Called by
-      # `type_cast_from_database` and `type_cast_from_user` for all values
-      # except `nil`.
+      # +type_cast_from_database+ and +type_cast_from_user+ for all values
+      # except +nil+.
       def cast_value(value) # :doc:
         value
       end

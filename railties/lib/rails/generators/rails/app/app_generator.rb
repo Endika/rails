@@ -88,8 +88,13 @@ module Rails
 
     def config_when_updating
       cookie_serializer_config_exist = File.exist?('config/initializers/cookies_serializer.rb')
+      callback_terminator_config_exist = File.exist?('config/initializers/callback_terminator.rb')
 
       config
+
+      unless callback_terminator_config_exist
+        remove_file 'config/initializers/callback_terminator.rb'
+      end
 
       unless cookie_serializer_config_exist
         gsub_file 'config/initializers/cookies_serializer.rb', /json/, 'marshal'
@@ -338,7 +343,7 @@ module Rails
     #
     # This class should be called before the AppGenerator is required and started
     # since it configures and mutates ARGV correctly.
-    class ARGVScrubber # :nodoc
+    class ARGVScrubber # :nodoc:
       def initialize(argv = ARGV)
         @argv = argv
       end

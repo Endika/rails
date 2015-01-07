@@ -479,6 +479,8 @@ ActiveRecord::Schema.define do
     # Oracle/SQLServer supports precision up to 38
     if current_adapter?(:OracleAdapter, :SQLServerAdapter)
       t.decimal :atoms_in_universe, precision: 38, scale: 0
+    elsif current_adapter?(:FbAdapter)
+      t.decimal :atoms_in_universe, precision: 18, scale: 0
     else
       t.decimal :atoms_in_universe, precision: 55, scale: 0
     end
@@ -726,7 +728,7 @@ ActiveRecord::Schema.define do
     t.string   :author_name
     t.string   :author_email_address
     if mysql_56?
-      t.datetime :written_on, limit: 6
+      t.datetime :written_on, precision: 6
     else
       t.datetime :written_on
     end
@@ -891,6 +893,11 @@ ActiveRecord::Schema.define do
     t.float :unoverloaded_float
     t.string :overloaded_string_with_limit, limit: 255
     t.string :string_with_default, default: 'the original default'
+  end
+
+  create_table :users, force: true do |t|
+    t.string :token
+    t.string :auth_token
   end
 end
 

@@ -200,13 +200,19 @@ module ActiveRecord
             after_create save_method
             after_update save_method
           else
-            define_non_cyclic_method(save_method) { save_belongs_to_association(reflection) }
+            define_non_cyclic_method(save_method) { throw(:abort) if save_belongs_to_association(reflection) == false }
             before_save save_method
           end
 
           if reflection.validate? && !method_defined?(validation_method)
             method = (collection ? :validate_collection_association : :validate_single_association)
-            define_non_cyclic_method(validation_method) { send(method, reflection) }
+            define_non_cyclic_method(validation_method) do
+              send(method, reflection)
+              # TODO: remove the following line as soon as the return value of
+              # callbacks is ignored, that is, returning `false` does not
+              # display a deprecation warning or halts the callback chain.
+              true
+            end
             validate validation_method
           end
         end
@@ -272,11 +278,18 @@ module ActiveRecord
       # go through nested autosave associations that are loaded in memory (without loading
       # any new ones), and return true if is changed for autosave
       def nested_records_changed_for_autosave?
-        self.class._reflections.values.any? do |reflection|
-          if reflection.options[:autosave]
-            association = association_instance_get(reflection.name)
-            association && Array.wrap(association.target).any?(&:changed_for_autosave?)
+        @_nested_records_changed_for_autosave_already_called ||= false
+        return false if @_nested_records_changed_for_autosave_already_called
+        begin
+          @_nested_records_changed_for_autosave_already_called = true
+          self.class._reflections.values.any? do |reflection|
+            if reflection.options[:autosave]
+              association = association_instance_get(reflection.name)
+              association && Array.wrap(association.target).any?(&:changed_for_autosave?)
+            end
           end
+        ensure
+          @_nested_records_changed_for_autosave_already_called = false
         end
       end
 

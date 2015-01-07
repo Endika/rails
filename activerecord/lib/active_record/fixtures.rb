@@ -633,7 +633,7 @@ module ActiveRecord
 
           # interpolate the fixture label
           row.each do |key, value|
-            row[key] = value.gsub("$LABEL", label) if value.is_a?(String)
+            row[key] = value.gsub("$LABEL", label.to_s) if value.is_a?(String)
           end
 
           # generate a primary key if necessary
@@ -768,12 +768,6 @@ module ActiveRecord
 
   end
 
-  #--
-  # Deprecate 'Fixtures' in favor of 'FixtureSet'.
-  #++
-  # :nodoc:
-  Fixtures = ActiveSupport::Deprecation::DeprecatedConstantProxy.new('ActiveRecord::Fixtures', 'ActiveRecord::FixtureSet')
-
   class Fixture #:nodoc:
     include Enumerable
 
@@ -888,7 +882,7 @@ module ActiveRecord
               @fixture_cache[fs_name] ||= {}
 
               instances = fixture_names.map do |f_name|
-                f_name = f_name.to_s
+                f_name = f_name.to_s if f_name.is_a?(Symbol)
                 @fixture_cache[fs_name].delete(f_name) if force_reload
 
                 if @loaded_fixtures[fs_name][f_name]

@@ -1,6 +1,5 @@
 require 'active_support/hash_with_indifferent_access'
 require 'active_support/core_ext/object/duplicable'
-require 'active_support/core_ext/string/filters'
 
 module ActiveModel
   # == Active \Model \Dirty
@@ -102,7 +101,7 @@ module ActiveModel
   #
   # If an attribute is modified in-place then make use of
   # +[attribute_name]_will_change!+ to mark that the attribute is changing.
-  # Otherwise Active Model can't track changes to in-place attributes. Note
+  # Otherwise \Active \Model can't track changes to in-place attributes. Note
   # that Active Record can detect in-place modifications automatically. You do
   # not need to call +[attribute_name]_will_change!+ on Active Record models.
   #
@@ -116,7 +115,6 @@ module ActiveModel
 
     included do
       attribute_method_suffix '_changed?', '_change', '_will_change!', '_was'
-      attribute_method_affix prefix: 'reset_', suffix: '!'
       attribute_method_affix prefix: 'restore_', suffix: '!'
     end
 
@@ -170,7 +168,7 @@ module ActiveModel
 
     # Handle <tt>*_changed?</tt> for +method_missing+.
     def attribute_changed?(attr, options = {}) #:nodoc:
-      result = changed_attributes.include?(attr)
+      result = changes_include?(attr)
       result &&= options[:to] == __send__(attr) if options.key?(:to)
       result &&= options[:from] == changed_attributes[attr] if options.key?(:from)
       result
@@ -188,6 +186,10 @@ module ActiveModel
 
     private
 
+      def changes_include?(attr_name)
+        attributes_changed_by_setter.include?(attr_name)
+      end
+
       # Removes current changes and makes them accessible through +previous_changes+.
       def changes_applied # :doc:
         @previously_changed = changes
@@ -198,15 +200,6 @@ module ActiveModel
       def clear_changes_information # :doc:
         @previously_changed = ActiveSupport::HashWithIndifferentAccess.new
         @changed_attributes = ActiveSupport::HashWithIndifferentAccess.new
-      end
-
-      def reset_changes
-        ActiveSupport::Deprecation.warn(<<-MSG.squish)
-          `#reset_changes` is deprecated and will be removed on Rails 5.
-          Please use `#clear_changes_information` instead.
-        MSG
-
-        clear_changes_information
       end
 
       # Handle <tt>*_change</tt> for +method_missing+.
@@ -225,16 +218,6 @@ module ActiveModel
         end
 
         set_attribute_was(attr, value)
-      end
-
-      # Handle <tt>reset_*!</tt> for +method_missing+.
-      def reset_attribute!(attr)
-        ActiveSupport::Deprecation.warn(<<-MSG.squish)
-          `#reset_#{attr}!` is deprecated and will be removed on Rails 5.
-          Please use `#restore_#{attr}!` instead.
-        MSG
-
-        restore_attribute!(attr)
       end
 
       # Handle <tt>restore_*!</tt> for +method_missing+.

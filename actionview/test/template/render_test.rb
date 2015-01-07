@@ -175,14 +175,14 @@ module RenderTestCases
   def test_render_partial_with_invalid_name
     e = assert_raises(ArgumentError) { @view.render(:partial => "test/200") }
     assert_equal "The partial name (test/200) is not a valid Ruby identifier; " +
-      "make sure your partial name starts with a lowercase letter or underscore, " +
+      "make sure your partial name starts with underscore, " +
       "and is followed by any combination of letters, numbers and underscores.", e.message
   end
 
   def test_render_partial_with_missing_filename
     e = assert_raises(ArgumentError) { @view.render(:partial => "test/") }
     assert_equal "The partial name (test/) is not a valid Ruby identifier; " +
-      "make sure your partial name starts with a lowercase letter or underscore, " +
+      "make sure your partial name starts with underscore, " +
       "and is followed by any combination of letters, numbers and underscores.", e.message
   end
 
@@ -194,7 +194,21 @@ module RenderTestCases
   def test_render_partial_with_hyphen
     e = assert_raises(ArgumentError) { @view.render(:partial => "test/a-in") }
     assert_equal "The partial name (test/a-in) is not a valid Ruby identifier; " +
-      "make sure your partial name starts with a lowercase letter or underscore, " +
+      "make sure your partial name starts with underscore, " +
+      "and is followed by any combination of letters, numbers and underscores.", e.message
+  end
+
+  def test_render_partial_with_invalid_option_as
+    e = assert_raises(ArgumentError) { @view.render(:partial => "test/partial_only", :as => 'a-in') }
+    assert_equal "The value (a-in) of the option `as` is not a valid Ruby identifier; " +
+      "make sure it starts with lowercase letter, " +
+      "and is followed by any combination of letters, numbers and underscores.", e.message
+  end
+
+  def test_render_partial_with_hyphen_and_invalid_option_as
+    e = assert_raises(ArgumentError) { @view.render(:partial => "test/a-in", :as => 'a-in') }
+    assert_equal "The value (a-in) of the option `as` is not a valid Ruby identifier; " +
+      "make sure it starts with lowercase letter, " +
       "and is followed by any combination of letters, numbers and underscores.", e.message
   end
 
@@ -464,6 +478,11 @@ module RenderTestCases
   def test_render_partial_and_layout_without_block_with_locals_and_rendering_another_partial
     assert_equal %(Before (Foo!)\npartial html\npartial with partial\n\nAfter),
       @view.render(:partial => 'test/partial_with_partial', :layout => 'test/layout_for_partial', :locals => { :name => 'Foo!'})
+  end
+
+  def test_render_partial_shortcut_with_block_content
+    assert_equal %(Before (shortcut test)\nBefore\n\n  Yielded: arg1/arg2\n\nAfter\nAfter),
+      @view.render(partial: "test/partial_shortcut_with_block_content", layout: "test/layout_for_partial", locals: { name: "shortcut test" })
   end
 
   def test_render_layout_with_a_nested_render_layout_call

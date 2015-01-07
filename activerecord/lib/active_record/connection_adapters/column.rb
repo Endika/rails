@@ -5,7 +5,6 @@ module ActiveRecord
   module ConnectionAdapters
     # An abstract definition of a column in a table.
     class Column
-      TRUE_VALUES = [true, 1, '1', 't', 'T', 'true', 'TRUE', 'on', 'ON'].to_set
       FALSE_VALUES = [false, 0, '0', 'f', 'F', 'false', 'FALSE', 'off', 'OFF'].to_set
 
       module Format
@@ -16,7 +15,7 @@ module ActiveRecord
       attr_reader :name, :cast_type, :null, :sql_type, :default, :default_function
 
       delegate :type, :precision, :scale, :limit, :klass, :accessor,
-        :number?, :binary?, :changed?,
+        :text?, :number?, :binary?, :changed?,
         :type_cast_from_user, :type_cast_from_database, :type_cast_for_database,
         :type_cast_for_schema,
         to: :cast_type
@@ -30,13 +29,13 @@ module ActiveRecord
       # <tt>company_name varchar(60)</tt>.
       # It will be mapped to one of the standard Rails SQL types in the <tt>type</tt> attribute.
       # +null+ determines if this column allows +NULL+ values.
-      def initialize(name, default, cast_type, sql_type = nil, null = true)
+      def initialize(name, default, cast_type, sql_type = nil, null = true, default_function = nil)
         @name             = name
         @cast_type        = cast_type
         @sql_type         = sql_type
         @null             = null
         @default          = default
-        @default_function = nil
+        @default_function = default_function
       end
 
       def has_default?
@@ -75,6 +74,12 @@ module ActiveRecord
 
       def attributes_for_hash
         [self.class, name, default, cast_type, sql_type, null, default_function]
+      end
+    end
+
+    class NullColumn < Column
+      def initialize(name)
+        super name, nil, Type::Value.new
       end
     end
   end

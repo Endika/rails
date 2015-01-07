@@ -29,10 +29,11 @@ module ActiveRecord
     # instantiation of the actual post records.
     class CollectionProxy < Relation
       delegate(*(ActiveRecord::Calculations.public_instance_methods - [:count]), to: :scope)
+      delegate :find_nth, to: :scope
 
       def initialize(klass, association) #:nodoc:
         @association = association
-        super klass, klass.arel_table
+        super klass, klass.arel_table, klass.predicate_builder
         merge! association.scope(nullify: false)
       end
 
@@ -687,10 +688,8 @@ module ActiveRecord
       #   #       #<Pet id: 2, name: "Spook", person_id: 1>,
       #   #       #<Pet id: 3, name: "Choo-Choo", person_id: 1>
       #   #    ]
-      def count(column_name = nil, options = {})
-        # TODO: Remove options argument as soon we remove support to
-        # activerecord-deprecated_finders.
-        @association.count(column_name, options)
+      def count(column_name = nil)
+        @association.count(column_name)
       end
 
       # Returns the size of the collection. If the collection hasn't been loaded,

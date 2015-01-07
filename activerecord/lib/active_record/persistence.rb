@@ -109,37 +109,45 @@ module ActiveRecord
     # validate: false, validations are bypassed altogether. See
     # ActiveRecord::Validations for more information.
     #
-    # There's a series of callbacks associated with +save+. If any of the
-    # <tt>before_*</tt> callbacks return +false+ the action is cancelled and
-    # +save+ returns +false+. See ActiveRecord::Callbacks for further
+    # By default, #save also sets the +updated_at+/+updated_on+ attributes to
+    # the current time. However, if you supply <tt>touch: false</tt>, these
+    # timestamps will not be updated.
+    #
+    # There's a series of callbacks associated with #save. If any of the
+    # <tt>before_*</tt> callbacks throws +:abort+ the action is cancelled and
+    # #save returns +false+. See ActiveRecord::Callbacks for further
     # details.
     #
     # Attributes marked as readonly are silently ignored if the record is
     # being updated.
-    def save(*)
-      create_or_update
+    def save(*args)
+      create_or_update(*args)
     rescue ActiveRecord::RecordInvalid
       false
     end
 
     # Saves the model.
     #
-    # If the model is new a record gets created in the database, otherwise
+    # If the model is new, a record gets created in the database, otherwise
     # the existing record gets updated.
     #
     # With <tt>save!</tt> validations always run. If any of them fail
     # ActiveRecord::RecordInvalid gets raised. See ActiveRecord::Validations
     # for more information.
     #
-    # There's a series of callbacks associated with <tt>save!</tt>. If any of
-    # the <tt>before_*</tt> callbacks return +false+ the action is cancelled
-    # and <tt>save!</tt> raises ActiveRecord::RecordNotSaved. See
+    # By default, #save! also sets the +updated_at+/+updated_on+ attributes to
+    # the current time. However, if you supply <tt>touch: false</tt>, these
+    # timestamps will not be updated.
+    #
+    # There's a series of callbacks associated with #save!. If any of
+    # the <tt>before_*</tt> callbacks throws +:abort+ the action is cancelled
+    # and #save! raises ActiveRecord::RecordNotSaved. See
     # ActiveRecord::Callbacks for further details.
     #
     # Attributes marked as readonly are silently ignored if the record is
     # being updated.
-    def save!(*)
-      create_or_update || raise(RecordNotSaved.new(nil, self))
+    def save!(*args)
+      create_or_update(*args) || raise(RecordNotSaved.new(nil, self))
     end
 
     # Deletes the record in the database and freezes this instance to
@@ -163,10 +171,10 @@ module ActiveRecord
     # Deletes the record in the database and freezes this instance to reflect
     # that no changes should be made (since they can't be persisted).
     #
-    # There's a series of callbacks associated with <tt>destroy</tt>. If
-    # the <tt>before_destroy</tt> callback return +false+ the action is cancelled
-    # and <tt>destroy</tt> returns +false+. See
-    # ActiveRecord::Callbacks for further details.
+    # There's a series of callbacks associated with #destroy. If the
+    # <tt>before_destroy</tt> callback throws +:abort+ the action is cancelled
+    # and #destroy returns +false+.
+    # See ActiveRecord::Callbacks for further details.
     def destroy
       raise ReadOnlyRecord, "#{self.class} is marked as readonly" if readonly?
       destroy_associations
@@ -178,10 +186,10 @@ module ActiveRecord
     # Deletes the record in the database and freezes this instance to reflect
     # that no changes should be made (since they can't be persisted).
     #
-    # There's a series of callbacks associated with <tt>destroy!</tt>. If
-    # the <tt>before_destroy</tt> callback return +false+ the action is cancelled
-    # and <tt>destroy!</tt> raises ActiveRecord::RecordNotDestroyed. See
-    # ActiveRecord::Callbacks for further details.
+    # There's a series of callbacks associated with #destroy!. If the
+    # <tt>before_destroy</tt> callback throws +:abort+ the action is cancelled
+    # and #destroy! raises ActiveRecord::RecordNotDestroyed.
+    # See ActiveRecord::Callbacks for further details.
     def destroy!
       destroy || raise(ActiveRecord::RecordNotDestroyed, self)
     end
@@ -498,9 +506,9 @@ module ActiveRecord
       relation
     end
 
-    def create_or_update
+    def create_or_update(*args)
       raise ReadOnlyRecord, "#{self.class} is marked as readonly" if readonly?
-      result = new_record? ? _create_record : _update_record
+      result = new_record? ? _create_record : _update_record(*args)
       result != false
     end
 

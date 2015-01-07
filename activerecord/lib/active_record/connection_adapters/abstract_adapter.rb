@@ -21,10 +21,10 @@ module ActiveRecord
       autoload :IndexDefinition
       autoload :ColumnDefinition
       autoload :ChangeColumnDefinition
+      autoload :ForeignKeyDefinition
       autoload :TableDefinition
       autoload :Table
       autoload :AlterTable
-      autoload :TimestampDefaultDeprecation
     end
 
     autoload_at 'active_record/connection_adapters/abstract/connection_pool' do
@@ -351,9 +351,6 @@ module ActiveRecord
       def create_savepoint(name = nil)
       end
 
-      def rollback_to_savepoint(name = nil)
-      end
-
       def release_savepoint(name = nil)
       end
 
@@ -395,7 +392,7 @@ module ActiveRecord
       end
 
       def column_name_for_operation(operation, node) # :nodoc:
-        node.to_sql
+        visitor.accept(node, collector).value
       end
 
       protected
@@ -459,7 +456,12 @@ module ActiveRecord
       end
 
       def translate_exception_class(e, sql)
-        message = "#{e.class.name}: #{e.message}: #{sql}"
+        begin
+          message = "#{e.class.name}: #{e.message}: #{sql}"
+        rescue Encoding::CompatibilityError
+          message = "#{e.class.name}: #{e.message.force_encoding sql.encoding}: #{sql}"
+        end
+
         @logger.error message if @logger
         exception = translate_exception(e, message)
         exception.set_backtrace e.backtrace

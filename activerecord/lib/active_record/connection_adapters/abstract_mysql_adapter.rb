@@ -6,6 +6,13 @@ module ActiveRecord
     class AbstractMysqlAdapter < AbstractAdapter
       include Savepoints
 
+      class TableDefinition < ActiveRecord::ConnectionAdapters::TableDefinition
+        def primary_key(name, type = :primary_key, options = {})
+          options[:auto_increment] ||= type == :bigint
+          super
+        end
+      end
+
       class SchemaCreation < AbstractAdapter::SchemaCreation
         def visit_AddColumn(o)
           add_column_position!(super, column_options(o))
@@ -31,12 +38,8 @@ module ActiveRecord
         end
 
         def visit_ChangeColumnDefinition(o)
-          column = o.column
-          options = o.options
-          sql_type = type_to_sql(o.type, options[:limit], options[:precision], options[:scale])
-          change_column_sql = "CHANGE #{quote_column_name(column.name)} #{quote_column_name(options[:name])} #{sql_type}"
-          add_column_options!(change_column_sql, options.merge(column: column))
-          add_column_position!(change_column_sql, options)
+          change_column_sql = "CHANGE #{quote_column_name(o.name)} #{accept(o.column)}"
+          add_column_position!(change_column_sql, column_options(o.column))
         end
 
         def add_column_position!(sql, options)
@@ -56,6 +59,18 @@ module ActiveRecord
 
       def schema_creation
         SchemaCreation.new self
+      end
+
+      def column_spec_for_primary_key(column)
+        spec = {}
+        if column.extra == 'auto_increment'
+          return unless column.limit == 8
+          spec[:id] = ':bigint'
+        else
+          spec[:id] = column.type.inspect
+          spec.merge!(prepare_column_options(column).delete_if { |key, _| [:name, :type, :null].include?(key) })
+        end
+        spec
       end
 
       class Column < ConnectionAdapters::Column # :nodoc:
@@ -324,7 +339,7 @@ module ActiveRecord
         execute "COMMIT"
       end
 
-      def rollback_db_transaction #:nodoc:
+      def exec_rollback_db_transaction #:nodoc:
         execute "ROLLBACK"
       end
 
@@ -487,11 +502,13 @@ module ActiveRecord
       end
 
       def drop_table(table_name, options = {})
-        execute "DROP#{' TEMPORARY' if options[:temporary]} TABLE #{quote_table_name(table_name)}"
+        execute "DROP#{' TEMPORARY' if options[:temporary]} TABLE #{quote_table_name(table_name)}#{' CASCADE' if options[:force] == :cascade}"
       end
 
       def rename_index(table_name, old_name, new_name)
         if supports_rename_index?
+          validate_index_length!(table_name, new_name)
+
           execute "ALTER TABLE #{quote_table_name(table_name)} RENAME INDEX #{quote_table_name(old_name)} TO #{quote_table_name(new_name)}"
         else
           super
@@ -582,6 +599,13 @@ module ActiveRecord
           when 0x1000000..0xffffffff; 'longtext'
           else raise(ActiveRecordError, "No text type has character length #{limit}")
           end
+        when 'datetime'
+          return super unless precision
+
+          case precision
+            when 0..6; "datetime(#{precision})"
+            else raise(ActiveRecordError, "No datetime type has precision of #{precision}. The allowed range of precision is from 0 to 6.")
+          end
         else
           super
         end
@@ -670,6 +694,11 @@ module ActiveRecord
         m.alias_type %r(year)i,          'integer'
         m.alias_type %r(bit)i,           'binary'
 
+        m.register_type(%r(datetime)i) do |sql_type|
+          precision = extract_precision(sql_type)
+          MysqlDateTime.new(precision: precision)
+        end
+
         m.register_type(%r(enum)i) do |sql_type|
           limit = sql_type[/^enum\((.+)\)/i, 1]
             .split(',').map{|enum| enum.strip.length - 2}.max
@@ -735,7 +764,7 @@ module ActiveRecord
       end
 
       def add_column_sql(table_name, column_name, type, options = {})
-        td = create_table_definition table_name, options[:temporary], options[:options]
+        td = create_table_definition(table_name)
         cd = td.new_column_definition(column_name, type, options)
         schema_creation.visit_AddColumn cd
       end
@@ -751,21 +780,23 @@ module ActiveRecord
           options[:null] = column.null
         end
 
-        options[:name] = column.name
-        schema_creation.accept ChangeColumnDefinition.new column, type, options
+        td = create_table_definition(table_name)
+        cd = td.new_column_definition(column.name, type, options)
+        schema_creation.accept(ChangeColumnDefinition.new(cd, column.name))
       end
 
       def rename_column_sql(table_name, column_name, new_column_name)
         column  = column_for(table_name, column_name)
         options = {
-          name: new_column_name,
           default: column.default,
           null: column.null,
           auto_increment: column.extra == "auto_increment"
         }
 
         current_type = select_one("SHOW COLUMNS FROM #{quote_table_name(table_name)} LIKE '#{column_name}'", 'SCHEMA')["Type"]
-        schema_creation.accept ChangeColumnDefinition.new column, current_type, options
+        td = create_table_definition(table_name)
+        cd = td.new_column_definition(new_column_name, current_type, options)
+        schema_creation.accept(ChangeColumnDefinition.new(cd, column.name))
       end
 
       def remove_column_sql(table_name, column_name, type = nil, options = {})
@@ -855,6 +886,26 @@ module ActiveRecord
           case $1
           when 'CASCADE'; :cascade
           when 'SET NULL'; :nullify
+          end
+        end
+      end
+
+      def create_table_definition(name, temporary = false, options = nil, as = nil) # :nodoc:
+        TableDefinition.new(native_database_types, name, temporary, options, as)
+      end
+
+      class MysqlDateTime < Type::DateTime # :nodoc:
+        def type_cast_for_database(value)
+          if value.acts_like?(:time) && value.respond_to?(:usec)
+            result = super.to_s(:db)
+            case precision
+            when 1..6
+              "#{result}.#{sprintf("%0#{precision}d", value.usec / 10 ** (6 - precision))}"
+            else
+              result
+            end
+          else
+            super
           end
         end
       end

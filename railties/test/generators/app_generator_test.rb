@@ -160,6 +160,38 @@ class AppGeneratorTest < Rails::Generators::TestCase
     assert_file("#{app_root}/config/initializers/cookies_serializer.rb", /Rails\.application\.config\.action_dispatch\.cookies_serializer = :json/)
   end
 
+  def test_rails_update_does_not_create_callback_terminator_initializer
+    app_root = File.join(destination_root, 'myapp')
+    run_generator [app_root]
+
+    FileUtils.rm("#{app_root}/config/initializers/callback_terminator.rb")
+
+    Rails.application.config.root = app_root
+    Rails.application.class.stubs(:name).returns("Myapp")
+    Rails.application.stubs(:is_a?).returns(Rails::Application)
+
+    generator = Rails::Generators::AppGenerator.new ["rails"], { with_dispatchers: true }, destination_root: app_root, shell: @shell
+    generator.send(:app_const)
+    quietly { generator.send(:update_config_files) }
+    assert_no_file "#{app_root}/config/initializers/callback_terminator.rb"
+  end
+
+  def test_rails_update_does_not_remove_callback_terminator_initializer_if_already_present
+    app_root = File.join(destination_root, 'myapp')
+    run_generator [app_root]
+
+    FileUtils.touch("#{app_root}/config/initializers/callback_terminator.rb")
+
+    Rails.application.config.root = app_root
+    Rails.application.class.stubs(:name).returns("Myapp")
+    Rails.application.stubs(:is_a?).returns(Rails::Application)
+
+    generator = Rails::Generators::AppGenerator.new ["rails"], { with_dispatchers: true }, destination_root: app_root, shell: @shell
+    generator.send(:app_const)
+    quietly { generator.send(:update_config_files) }
+    assert_file "#{app_root}/config/initializers/callback_terminator.rb"
+  end
+
   def test_rails_update_set_the_cookie_serializer_to_marchal_if_it_is_not_already_configured
     app_root = File.join(destination_root, 'myapp')
     run_generator [app_root]
@@ -259,12 +291,40 @@ class AppGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  def test_generator_without_skips
+    run_generator
+    assert_file "config/application.rb", /\s+require\s+["']rails\/all["']/
+    assert_file "config/environments/development.rb" do |content|
+      assert_match(/config\.action_mailer\.raise_delivery_errors = false/, content)
+    end
+    assert_file "config/environments/test.rb" do |content|
+      assert_match(/config\.action_mailer\.delivery_method = :test/, content)
+    end
+    assert_file "config/environments/production.rb" do |content|
+      assert_match(/# config\.action_mailer\.raise_delivery_errors = false/, content)
+    end
+  end
+
   def test_generator_if_skip_active_record_is_given
     run_generator [destination_root, "--skip-active-record"]
     assert_no_file "config/database.yml"
     assert_file "config/application.rb", /#\s+require\s+["']active_record\/railtie["']/
     assert_file "test/test_helper.rb" do |helper_content|
       assert_no_match(/fixtures :all/, helper_content)
+    end
+  end
+
+  def test_generator_if_skip_action_mailer_is_given
+    run_generator [destination_root, "--skip-action-mailer"]
+    assert_file "config/application.rb", /#\s+require\s+["']action_mailer\/railtie["']/
+    assert_file "config/environments/development.rb" do |content|
+      assert_no_match(/config\.action_mailer/, content)
+    end
+    assert_file "config/environments/test.rb" do |content|
+      assert_no_match(/config\.action_mailer/, content)
+    end
+    assert_file "config/environments/production.rb" do |content|
+      assert_no_match(/config\.action_mailer/, content)
     end
   end
 
@@ -340,13 +400,10 @@ class AppGeneratorTest < Rails::Generators::TestCase
 
   def test_inclusion_of_a_debugger
     run_generator
-    if defined?(JRUBY_VERSION)
+    if defined?(JRUBY_VERSION) || RUBY_ENGINE == "rbx"
       assert_file "Gemfile" do |content|
         assert_no_match(/byebug/, content)
-        assert_no_match(/debugger/, content)
       end
-    elsif RUBY_VERSION < '2.0.0'
-      assert_gem 'debugger'
     else
       assert_gem 'byebug'
     end
@@ -418,6 +475,24 @@ class AppGeneratorTest < Rails::Generators::TestCase
   def test_web_console
     run_generator
     assert_gem 'web-console'
+  end
+
+  def test_web_console_with_dev_option
+    run_generator [destination_root, "--dev"]
+
+    assert_file "Gemfile" do |content|
+      assert_match(/gem 'web-console',\s+github: "rails\/web-console"/, content)
+      assert_no_match(/gem 'web-console', '~> 2.0'/, content)
+    end
+  end
+
+  def test_web_console_with_edge_option
+    run_generator [destination_root, "--edge"]
+
+    assert_file "Gemfile" do |content|
+      assert_match(/gem 'web-console',\s+github: "rails\/web-console"/, content)
+      assert_no_match(/gem 'web-console', '~> 2.0'/, content)
+    end
   end
 
   def test_spring

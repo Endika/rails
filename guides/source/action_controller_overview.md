@@ -1,3 +1,5 @@
+**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+
 Action Controller Overview
 ==========================
 
@@ -112,8 +114,8 @@ NOTE: The actual URL in this example will be encoded as "/clients?ids%5b%5d=1&id
 
 The value of `params[:ids]` will now be `["1", "2", "3"]`. Note that parameter values are always strings; Rails makes no attempt to guess or cast the type.
 
-NOTE: Values such as `[]`, `[nil]` or `[nil, nil, ...]` in `params` are replaced
-with `nil` for security reasons by default. See [Security Guide](security.html#unsafe-query-generation)
+NOTE: Values such as `[nil]` or `[nil, nil, ...]` in `params` are replaced
+with `[]` for security reasons by default. See [Security Guide](security.html#unsafe-query-generation)
 for more information.
 
 To send a hash you include the key name inside the brackets:
@@ -991,6 +993,11 @@ Rails allows you to stream more than just files. In fact, you can stream anythin
 you would like in a response object. The `ActionController::Live` module allows
 you to create a persistent connection with a browser. Using this module, you will
 be able to send arbitrary data to the browser at specific points in time.
+
+NOTE: The default Rails server (WEBrick) is a buffering web server and does not
+support streaming. In order to use this feature, you'll need to use a non buffering
+server like [Puma](http://puma.io), [Rainbows](http://rainbows.bogomips.org)
+or [Passenger](https://www.phusionpassenger.com).
 
 #### Incorporating Live Streaming
 

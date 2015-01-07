@@ -111,19 +111,6 @@ class CommentRelevance
   end
 end
 
-class Sheep
-  extend ActiveModel::Naming
-  include ActiveModel::Conversion
-
-  attr_reader :id
-  def to_key; id ? [id] : nil end
-  def save; @id = 1 end
-  def new_record?; @id.nil? end
-  def name
-    @id.nil? ? 'new sheep' : "sheep ##{@id}"
-  end
-end
-
 class TagRelevance
   extend ActiveModel::Naming
   include ActiveModel::Conversion
@@ -182,4 +169,16 @@ class ArelLike
 end
 
 class Car < Struct.new(:color)
+end
+
+class Plane
+  attr_reader :to_key
+
+  def model_name
+    OpenStruct.new param_key: 'airplane'
+  end
+
+  def save
+    @to_key = [1]
+  end
 end

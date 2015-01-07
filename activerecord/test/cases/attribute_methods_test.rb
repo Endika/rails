@@ -502,7 +502,7 @@ class AttributeMethodsTest < ActiveRecord::TestCase
   def test_typecast_attribute_from_select_to_false
     Topic.create(:title => 'Budget')
     # Oracle does not support boolean expressions in SELECT
-    if current_adapter?(:OracleAdapter)
+    if current_adapter?(:OracleAdapter, :FbAdapter)
       topic = Topic.all.merge!(:select => "topics.*, 0 as is_test").first
     else
       topic = Topic.all.merge!(:select => "topics.*, 1=2 as is_test").first
@@ -513,7 +513,7 @@ class AttributeMethodsTest < ActiveRecord::TestCase
   def test_typecast_attribute_from_select_to_true
     Topic.create(:title => 'Budget')
     # Oracle does not support boolean expressions in SELECT
-    if current_adapter?(:OracleAdapter)
+    if current_adapter?(:OracleAdapter, :FbAdapter)
       topic = Topic.all.merge!(:select => "topics.*, 1 as is_test").first
     else
       topic = Topic.all.merge!(:select => "topics.*, 2=2 as is_test").first
@@ -528,20 +528,6 @@ class AttributeMethodsTest < ActiveRecord::TestCase
       assert_raise ActiveRecord::DangerousAttributeError do
         klass.instance_method_already_implemented?(method)
       end
-    end
-  end
-
-  def test_deprecated_cache_attributes
-    assert_deprecated do
-      Topic.cache_attributes :replies_count
-    end
-
-    assert_deprecated do
-      Topic.cached_attributes
-    end
-
-    assert_deprecated do
-      Topic.cache_attribute? :replies_count
     end
   end
 

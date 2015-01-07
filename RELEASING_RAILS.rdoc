@@ -33,7 +33,6 @@ after some refactoring or bug fix, so it is important to check if the following 
 are working with the versions that will be released:
 
 * https://github.com/rails/protected_attributes
-* https://github.com/rails/activerecord-deprecated_finders
 
 Do not release red plugins tests.
 
@@ -54,7 +53,7 @@ addressed, and that can impact your release date.
 Ruby implementors have high stakes in making sure Rails works.  Be kind and
 give them a heads up that Rails will be released soonish.
 
-This only need to be done for major and minor releases, bugfix releases aren't a
+This is only required for major and minor releases, bugfix releases aren't a
 big enough deal, and are supposed to be backwards compatible.
 
 Send an email just giving a heads up about the upcoming release to these

@@ -30,9 +30,19 @@ class DogWithTwoValidators < Dog
   before_validation { self.history << 'before_validation_marker2' }
 end
 
-class DogValidatorReturningFalse < Dog
+class DogDeprecatedBeforeValidatorReturningFalse < Dog
   before_validation { false }
   before_validation { self.history << 'before_validation_marker2' }
+end
+
+class DogBeforeValidatorThrowingAbort < Dog
+  before_validation { throw :abort }
+  before_validation { self.history << 'before_validation_marker2' }
+end
+
+class DogAfterValidatorReturningFalse < Dog
+  after_validation { false }
+  after_validation { self.history << 'after_validation_marker' }
 end
 
 class DogWithMissingName < Dog
@@ -81,11 +91,26 @@ class CallbacksWithMethodNamesShouldBeCalled < ActiveModel::TestCase
     assert_equal ['before_validation_marker1', 'before_validation_marker2'], d.history
   end
 
-  def test_further_callbacks_should_not_be_called_if_before_validation_returns_false
-    d = DogValidatorReturningFalse.new
+  def test_further_callbacks_should_not_be_called_if_before_validation_throws_abort
+    d = DogBeforeValidatorThrowingAbort.new
     output = d.valid?
     assert_equal [], d.history
     assert_equal false, output
+  end
+
+  def test_deprecated_further_callbacks_should_not_be_called_if_before_validation_returns_false
+    d = DogDeprecatedBeforeValidatorReturningFalse.new
+    assert_deprecated do
+      output = d.valid?
+      assert_equal [], d.history
+      assert_equal false, output
+    end
+  end
+
+  def test_further_callbacks_should_be_called_if_after_validation_returns_false
+    d = DogAfterValidatorReturningFalse.new
+    d.valid?
+    assert_equal ['after_validation_marker'], d.history
   end
 
   def test_validation_test_should_be_done

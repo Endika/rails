@@ -63,10 +63,20 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
     end
 
     # Views
-    %w(index edit new show _form).each do |view|
+    assert_no_file "app/views/layouts/product_lines.html.erb"
+
+    %w(index show).each do |view|
       assert_file "app/views/product_lines/#{view}.html.erb"
     end
-    assert_no_file "app/views/layouts/product_lines.html.erb"
+
+    %w(edit new).each do |view|
+      assert_file "app/views/product_lines/#{view}.html.erb", /render 'form', product_line: @product_line/
+    end
+
+    assert_file "app/views/product_lines/_form.html.erb" do |test|
+      assert_match 'product_line', test
+      assert_no_match '@product_line', test
+    end
 
     # Helpers
     assert_file "app/helpers/product_lines_helper.rb"
@@ -249,11 +259,25 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
     assert_no_file "app/assets/stylesheets/posts.css"
   end
 
-  def test_scaffold_generator_no_assets_with_switch_resource_route_false
+  def test_scaffold_generator_with_switch_resource_route_false
     run_generator [ "posts", "--resource-route=false" ]
     assert_file "config/routes.rb" do |route|
       assert_no_match(/resources :posts$/, route)
     end
+  end
+
+  def test_scaffold_generator_no_helper_with_switch_no_helper
+    output = run_generator [ "posts", "--no-helper" ]
+
+    assert_no_match(/error/, output)
+    assert_no_file "app/helpers/posts_helper.rb"
+  end
+
+  def test_scaffold_generator_no_helper_with_switch_helper_false
+    output = run_generator [ "posts", "--helper=false" ]
+
+    assert_no_match(/error/, output)
+    assert_no_file "app/helpers/posts_helper.rb"
   end
 
   def test_scaffold_generator_no_stylesheets
