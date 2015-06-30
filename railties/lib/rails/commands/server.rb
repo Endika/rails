@@ -78,7 +78,6 @@ module Rails
 
     def middleware
       middlewares = []
-      middlewares << [::Rack::ContentLength]
 
       # FIXME: add Rack::Lock in the case people are using webrick.
       # This is to remain backwards compatible for those who are
@@ -91,18 +90,13 @@ module Rails
       Hash.new(middlewares)
     end
 
-    def log_path
-      "log/#{options[:environment]}.log"
-    end
-
     def default_options
       super.merge({
         Port:               3000,
         DoNotReverseLookup: true,
         environment:        (ENV['RAILS_ENV'] || ENV['RACK_ENV'] || "development").dup,
         daemonize:          false,
-        pid:                File.expand_path("tmp/pids/server.pid"),
-        config:             File.expand_path("config.ru")
+        pid:                File.expand_path("tmp/pids/server.pid")
       })
     end
 

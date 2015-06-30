@@ -6,7 +6,7 @@ require 'action_view/template/resolver'
 module ActionView
   # = Action View Lookup Context
   #
-  # LookupContext is the object responsible to hold all information required to lookup
+  # <tt>LookupContext</tt> is the object responsible to hold all information required to lookup
   # templates, i.e. view paths and details. The LookupContext is also responsible to
   # generate a key, given to view paths, used in the resolver cache lookup. Since
   # this key is generated just once during the request, it speeds up all cache accesses.
@@ -126,7 +126,7 @@ module ActionView
         @view_paths.find_all(*args_for_lookup(name, prefixes, partial, keys, options))
       end
 
-      def exists?(name, prefixes = [], partial = false, keys = [], options = {})
+      def exists?(name, prefixes = [], partial = false, keys = [], **options)
         @view_paths.exists?(*args_for_lookup(name, prefixes, partial, keys, options))
       end
       alias :template_exists? :exists?

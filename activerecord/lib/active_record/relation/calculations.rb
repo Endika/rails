@@ -71,6 +71,7 @@ module ActiveRecord
     #
     #   Person.sum(:age) # => 4562
     def sum(*args)
+      return super if block_given?
       calculate(:sum, *args)
     end
 
@@ -130,15 +131,15 @@ module ActiveRecord
     # the plucked column names, if they can be deduced. Plucking an SQL fragment
     # returns String values by default.
     #
-    #   Person.pluck(:id)
-    #   # SELECT people.id FROM people
-    #   # => [1, 2, 3]
+    #   Person.pluck(:name)
+    #   # SELECT people.name FROM people
+    #   # => ['David', 'Jeremy', 'Jose']
     #
     #   Person.pluck(:id, :name)
     #   # SELECT people.id, people.name FROM people
     #   # => [[1, 'David'], [2, 'Jeremy'], [3, 'Jose']]
     #
-    #   Person.pluck('DISTINCT role')
+    #   Person.uniq.pluck(:role)
     #   # SELECT DISTINCT role FROM people
     #   # => ['admin', 'member', 'guest']
     #
@@ -150,6 +151,8 @@ module ActiveRecord
     #   # SELECT DATEDIFF(updated_at, created_at) FROM people
     #   # => ['0', '27761', '173']
     #
+    # See also +ids+.
+    #
     def pluck(*column_names)
       column_names.map! do |column_name|
         if column_name.is_a?(Symbol) && attribute_alias?(column_name)
@@ -159,6 +162,10 @@ module ActiveRecord
         end
       end
 
+      if loaded? && (column_names - @klass.column_names).empty?
+        return @records.pluck(*column_names)
+      end
+
       if has_include?(column_names.first)
         construct_relation_for_association_calculations.pluck(*column_names)
       else
@@ -166,8 +173,8 @@ module ActiveRecord
         relation.select_values = column_names.map { |cn|
           columns_hash.key?(cn) ? arel_table[cn] : cn
         }
-        result = klass.connection.select_all(relation.arel, nil, relation.arel.bind_values + bind_values)
-        result.cast_values(klass.column_types)
+        result = klass.connection.select_all(relation.arel, nil, bound_attributes)
+        result.cast_values(klass.attribute_types)
       end
     end
 
@@ -182,7 +189,7 @@ module ActiveRecord
     private
 
     def has_include?(column_name)
-      eager_loading? || (includes_values.present? && ((column_name && column_name != :all) || references_eager_loaded_tables?))
+      eager_loading? || (includes_values.present? && column_name && column_name != :all)
     end
 
     def perform_calculation(operation, column_name)
@@ -222,19 +229,16 @@ module ActiveRecord
     end
 
     def execute_simple_calculation(operation, column_name, distinct) #:nodoc:
-      # Postgresql doesn't like ORDER BY when there are no GROUP BY
+      # PostgreSQL doesn't like ORDER BY when there are no GROUP BY
       relation = unscope(:order)
 
       column_alias = column_name
-
-      bind_values = nil
 
       if operation == "count" && (relation.limit_value || relation.offset_value)
         # Shortcut when limit is zero.
         return 0 if relation.limit_value == 0
 
         query_builder = build_count_subquery(relation, column_name, distinct)
-        bind_values = query_builder.bind_values + relation.bind_values
       else
         column = aggregate_column(column_name)
 
@@ -245,10 +249,9 @@ module ActiveRecord
         relation.select_values = [select_value]
 
         query_builder = relation.arel
-        bind_values = query_builder.bind_values + relation.bind_values
       end
 
-      result = @klass.connection.select_all(query_builder, nil, bind_values)
+      result = @klass.connection.select_all(query_builder, nil, bound_attributes)
       row    = result.first
       value  = row && row.values.first
       column = result.column_types.fetch(column_alias) do
@@ -290,7 +293,7 @@ module ActiveRecord
           operation,
           distinct).as(aggregate_alias)
       ]
-      select_values += select_values unless having_values.empty?
+      select_values += select_values unless having_clause.empty?
 
       select_values.concat group_fields.zip(group_aliases).map { |field,aliaz|
         if field.respond_to?(:as)
@@ -304,11 +307,11 @@ module ActiveRecord
       relation.group_values  = group
       relation.select_values = select_values
 
-      calculated_data = @klass.connection.select_all(relation, nil, relation.arel.bind_values + bind_values)
+      calculated_data = @klass.connection.select_all(relation, nil, relation.bound_attributes)
 
       if association
         key_ids     = calculated_data.collect { |row| row[group_aliases.first] }
-        key_records = association.klass.base_class.find(key_ids)
+        key_records = association.klass.base_class.where(association.klass.base_class.primary_key => key_ids)
         key_records = Hash[key_records.map { |r| [r.id, r] }]
       end
 
@@ -357,9 +360,9 @@ module ActiveRecord
     def type_cast_calculated_value(value, type, operation = nil)
       case operation
         when 'count'   then value.to_i
-        when 'sum'     then type.type_cast_from_database(value || 0)
+        when 'sum'     then type.deserialize(value || 0)
         when 'average' then value.respond_to?(:to_d) ? value.to_d : value
-        else type.type_cast_from_database(value)
+        else type.deserialize(value)
       end
     end
 
@@ -378,11 +381,9 @@ module ActiveRecord
 
       aliased_column = aggregate_column(column_name == :all ? 1 : column_name).as(column_alias)
       relation.select_values = [aliased_column]
-      arel = relation.arel
-      subquery = arel.as(subquery_alias)
+      subquery = relation.arel.as(subquery_alias)
 
       sm = Arel::SelectManager.new relation.engine
-      sm.bind_values = arel.bind_values
       select_value = operation_over_aggregate_column(column_alias, 'count', distinct)
       sm.project(select_value).from(subquery)
     end

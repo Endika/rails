@@ -77,7 +77,15 @@ class EagerAssociationTest < ActiveRecord::TestCase
 
   def test_has_many_through_with_order
     authors = Author.includes(:favorite_authors).to_a
+    assert authors.count > 0
     assert_no_queries { authors.map(&:favorite_authors) }
+  end
+
+  def test_eager_loaded_has_one_association_with_references_does_not_run_additional_queries
+    Post.update_all(author_id: nil)
+    authors = Author.includes(:post).references(:post).to_a
+    assert authors.count > 0
+    assert_no_queries { authors.map(&:post) }
   end
 
   def test_with_two_tables_in_from_without_getting_double_quoted
@@ -751,6 +759,23 @@ class EagerAssociationTest < ActiveRecord::TestCase
     end
   end
 
+  def test_eager_with_default_scope_as_class_method_using_find_method
+    david = developers(:david)
+    developer = EagerDeveloperWithClassMethodDefaultScope.find(david.id)
+    projects = Project.order(:id).to_a
+    assert_no_queries do
+      assert_equal(projects, developer.projects)
+    end
+  end
+
+  def test_eager_with_default_scope_as_class_method_using_find_by_method
+    developer = EagerDeveloperWithClassMethodDefaultScope.find_by(name: 'David')
+    projects = Project.order(:id).to_a
+    assert_no_queries do
+      assert_equal(projects, developer.projects)
+    end
+  end
+
   def test_eager_with_default_scope_as_lambda
     developer = EagerDeveloperWithLambdaDefaultScope.where(:name => 'David').first
     projects = Project.order(:id).to_a
@@ -1142,7 +1167,7 @@ class EagerAssociationTest < ActiveRecord::TestCase
     assert_no_queries { assert client.accounts.empty? }
   end
 
-  def test_preloading_has_many_through_with_uniq
+  def test_preloading_has_many_through_with_distinct
     mary = Author.includes(:unique_categorized_posts).where(:id => authors(:mary).id).first
     assert_equal 1, mary.unique_categorized_posts.length
     assert_equal 1, mary.unique_categorized_post_ids.length

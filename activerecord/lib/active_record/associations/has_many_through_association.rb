@@ -38,12 +38,10 @@ module ActiveRecord
       def insert_record(record, validate = true, raise = false)
         ensure_not_nested
 
-        if record.new_record?
-          if raise
-            record.save!(:validate => validate)
-          else
-            return unless record.save(:validate => validate)
-          end
+        if raise
+          record.save!(:validate => validate)
+        else
+          return unless record.save(:validate => validate)
         end
 
         save_through_record(record)
@@ -135,7 +133,7 @@ module ActiveRecord
             if scope.klass.primary_key
               count = scope.destroy_all.length
             else
-              scope.each(&:_run_destroy_callbacks)
+              scope.each { |record| record.run_callbacks :destroy }
 
               arel = scope.arel
 
@@ -143,7 +141,7 @@ module ActiveRecord
               stmt.from scope.klass.arel_table
               stmt.wheres = arel.constraints
 
-              count = scope.klass.connection.delete(stmt, 'SQL', scope.bind_values)
+              count = scope.klass.connection.delete(stmt, 'SQL', scope.bound_attributes)
             end
           when :nullify
             count = scope.update_all(source_reflection.foreign_key => nil)
@@ -160,9 +158,9 @@ module ActiveRecord
 
           if through_reflection.collection? && update_through_counter?(method)
             update_counter(-count, through_reflection)
+          else
+            update_counter(-count)
           end
-
-          update_counter(-count)
         end
 
         def through_records_for(record)

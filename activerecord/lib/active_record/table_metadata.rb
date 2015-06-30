@@ -1,6 +1,7 @@
 module ActiveRecord
   class TableMetadata # :nodoc:
     delegate :foreign_type, :foreign_key, to: :association, prefix: true
+    delegate :association_primary_key, to: :association
 
     def initialize(klass, arel_table, association = nil)
       @klass = klass
@@ -22,6 +23,14 @@ module ActiveRecord
       arel_table[column_name]
     end
 
+    def type(column_name)
+      if klass
+        klass.type_for_attribute(column_name.to_s)
+      else
+        Type::Value.new
+      end
+    end
+
     def associated_with?(association_name)
       klass && klass._reflect_on_association(association_name)
     end
@@ -32,9 +41,9 @@ module ActiveRecord
       association = klass._reflect_on_association(table_name)
       if association && !association.polymorphic?
         association_klass = association.klass
-        arel_table = association_klass.arel_table
+        arel_table = association_klass.arel_table.alias(table_name)
       else
-        type_caster = TypeCaster::Connection.new(klass.connection, table_name)
+        type_caster = TypeCaster::Connection.new(klass, table_name)
         association_klass = nil
         arel_table = Arel::Table.new(table_name, type_caster: type_caster)
       end

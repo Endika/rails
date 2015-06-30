@@ -1,3 +1,163 @@
+*   Fix a range of values for parameters of the Time#change
+
+    *Nikolay Kondratyev*
+
+*   Add `Enumerable#pluck` to get the same values from arrays as from ActiveRecord
+    associations.
+
+    Fixes #20339.
+
+    *Kevin Deisz*
+
+*   Add a bang version to `ActiveSupport::OrderedOptions` get methods which will raise
+    an `KeyError` if the value is `.blank?`
+
+    Before:
+
+        if (slack_url = Rails.application.secrets.slack_url).present?
+          # Do something worthwhile
+        else
+          # Raise as important secret password is not specified
+        end
+
+    After:
+
+        slack_url = Rails.application.secrets.slack_url!
+
+    *Aditya Sanghi*, *Gaurish Sharma*
+
+*   Remove deprecated `Class#superclass_delegating_accessor`.
+    Use `Class#class_attribute` instead.
+
+    *Akshay Vishnoi*
+
+*   Patch `Delegator` to work with `#try`.
+
+    Fixes #5790.
+
+    *Nate Smith*
+
+*   Add `Integer#positive?` and `Integer#negative?` query methods
+    in the vein of `Fixnum#zero?`.
+
+    This makes it nicer to do things like `bunch_of_numbers.select(&:positive?)`.
+
+    *DHH*
+
+*   Encoding `ActiveSupport::TimeWithZone` to YAML now preserves the timezone information.
+
+    Fixes #9183.
+
+    *Andrew White*
+
+*   Added `ActiveSupport::TimeZone#strptime` to allow parsing times as if
+    from a given timezone.
+
+    *Paul A Jungwirth*
+
+*   `ActiveSupport::Callbacks#skip_callback` now raises an `ArgumentError` if
+    an unrecognized callback is removed.
+
+    *Iain Beeston*
+
+*   Added `ActiveSupport::ArrayInquirer` and `Array#inquiry`.
+
+    Wrapping an array in an `ArrayInquirer` gives a friendlier way to check its
+    contents:
+
+        variants = ActiveSupport::ArrayInquirer.new([:phone, :tablet])
+
+        variants.phone?    # => true
+        variants.tablet?   # => true
+        variants.desktop?  # => false
+
+        variants.any?(:phone, :tablet)   # => true
+        variants.any?(:phone, :desktop)  # => true
+        variants.any?(:desktop, :watch)  # => false
+
+    `Array#inquiry` is a shortcut for wrapping the receiving array in an
+    `ArrayInquirer`.
+
+    *George Claghorn*
+
+*   Deprecate `alias_method_chain` in favour of `Module#prepend` introduced in
+    Ruby 2.0.
+
+    *Kir Shatrov*
+
+*   Added `#without` on `Enumerable` and `Array` to return a copy of an
+    enumerable without the specified elements.
+
+    *Todd Bealmear*
+
+*   Fixed a problem where `String#truncate_words` would get stuck with a complex
+    string.
+
+    *Henrik Nygren*
+
+*   Fixed a roundtrip problem with `AS::SafeBuffer` where primitive-like strings
+    will be dumped as primitives:
+
+    Before:
+
+        YAML.load ActiveSupport::SafeBuffer.new("Hello").to_yaml  # => "Hello"
+        YAML.load ActiveSupport::SafeBuffer.new("true").to_yaml   # => true
+        YAML.load ActiveSupport::SafeBuffer.new("false").to_yaml  # => false
+        YAML.load ActiveSupport::SafeBuffer.new("1").to_yaml      # => 1
+        YAML.load ActiveSupport::SafeBuffer.new("1.1").to_yaml    # => 1.1
+
+    After:
+
+        YAML.load ActiveSupport::SafeBuffer.new("Hello").to_yaml  # => "Hello"
+        YAML.load ActiveSupport::SafeBuffer.new("true").to_yaml   # => "true"
+        YAML.load ActiveSupport::SafeBuffer.new("false").to_yaml  # => "false"
+        YAML.load ActiveSupport::SafeBuffer.new("1").to_yaml      # => "1"
+        YAML.load ActiveSupport::SafeBuffer.new("1.1").to_yaml    # => "1.1"
+
+    *Godfrey Chan*
+
+*   Enable `number_to_percentage` to keep the number's precision by allowing
+    `:precision` to be `nil`.
+
+    *Jack Xu*
+
+*   `config_accessor` became a private method, as with Ruby's `attr_accessor`.
+
+    *Akira Matsuda*
+
+*   `AS::Testing::TimeHelpers#travel_to` now changes `DateTime.now` as well as
+    `Time.now` and `Date.today`.
+
+    *Yuki Nishijima*
+
+*   Add `file_fixture` to `ActiveSupport::TestCase`.
+    It provides a simple mechanism to access sample files in your test cases.
+
+    By default file fixtures are stored in `test/fixtures/files`. This can be
+    configured per test-case using the `file_fixture_path` class attribute.
+
+    *Yves Senn*
+
+*   Return value of yielded block in `File.atomic_write`.
+
+    *Ian Ker-Seymer*
+
+*   Duplicate frozen array when assigning it to a `HashWithIndifferentAccess` so
+    that it doesn't raise a `RuntimeError` when calling `map!` on it in `convert_value`.
+
+    Fixes #18550.
+
+    *Aditya Kapoor*
+
+*   Add missing time zone definitions for Russian Federation and sync them
+    with `zone.tab` file from tzdata version 2014j (latest).
+
+    *Andrey Novikov*
+
+*   Add `SecureRandom.base58` for generation of random base58 strings.
+
+    *Matthew Draper*, *Guillermo Iguaran*
+
 *   Add `#prev_day` and `#next_day` counterparts to `#yesterday` and
     `#tomorrow` for `Date`, `Time`, and `DateTime`.
 
@@ -11,7 +171,7 @@
 *   Add `#on_weekend?`, `#next_weekday`, `#prev_weekday` methods to `Date`,
     `Time`, and `DateTime`.
 
-    `#on_weekend?` returns true if the receiving date/time falls on a Saturday
+    `#on_weekend?` returns `true` if the receiving date/time falls on a Saturday
     or Sunday.
 
     `#next_weekday` returns a new date/time representing the next day that does
@@ -65,13 +225,13 @@
     `Callbacks::CallbackChain.halt_and_display_warning_on_return_false`, will
     either not work at all or display a deprecation warning.
 
-*   Add Callbacks::CallbackChain.halt_and_display_warning_on_return_false
+*   Add `Callbacks::CallbackChain.halt_and_display_warning_on_return_false`
 
     Setting `Callbacks::CallbackChain.halt_and_display_warning_on_return_false`
-    to true will let an app support the deprecated way of halting callback
+    to `true` will let an app support the deprecated way of halting callback
     chains by returning `false`.
 
-    Setting the value to false will tell the app to ignore any `false` value
+    Setting the value to `false` will tell the app to ignore any `false` value
     returned by callbacks, and only halt the chain upon `throw(:abort)`.
 
     The value can also be set with the Rails configuration option
@@ -84,7 +244,7 @@
 
     *claudiob*
 
-*   Changes arguments and default value of CallbackChain's :terminator option
+*   Changes arguments and default value of CallbackChain's `:terminator` option
 
     Chains of callbacks defined without an explicit `:terminator` option will
     now be halted as soon as a `before_` callback throws `:abort`.
@@ -104,6 +264,8 @@
 
 *   Add support for error dispatcher classes in `ActiveSupport::Rescuable`.
     Now it acts closer to Ruby's rescue.
+
+    Example:
 
         class BaseController < ApplicationController
           module ErrorDispatcher

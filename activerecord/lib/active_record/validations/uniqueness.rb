@@ -11,6 +11,7 @@ module ActiveRecord
       end
 
       def validate_each(record, attribute, value)
+        return unless should_validate?(record)
         finder_class = find_finder_class_for(record)
         table = finder_class.arel_table
         value = map_enum_attribute(finder_class, attribute, value)
@@ -59,7 +60,8 @@ module ActiveRecord
         end
 
         column = klass.columns_hash[attribute_name]
-        value = klass.type_for_attribute(attribute_name).type_cast_for_database(value)
+        cast_type = klass.type_for_attribute(attribute_name)
+        value = cast_type.serialize(value)
         value = klass.connection.type_cast(value)
         if value.is_a?(String) && column.limit
           value = value.to_s[0, column.limit]
@@ -67,13 +69,15 @@ module ActiveRecord
 
         value = Arel::Nodes::Quoted.new(value)
 
-        comparison = if !options[:case_sensitive] && value && column.text?
+        comparison = if !options[:case_sensitive] && !value.nil?
           # will use SQL LOWER function before comparison, unless it detects a case insensitive collation
           klass.connection.case_insensitive_comparison(table, attribute, column, value)
         else
           klass.connection.case_sensitive_comparison(table, attribute, column, value)
         end
         klass.unscoped.where(comparison)
+      rescue RangeError
+        klass.none
       end
 
       def scope_relation(record, table, relation)

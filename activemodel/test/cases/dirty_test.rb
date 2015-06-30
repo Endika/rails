@@ -45,10 +45,6 @@ class DirtyTest < ActiveModel::TestCase
     def reload
       clear_changes_information
     end
-
-    def deprecated_reload
-      reset_changes
-    end
   end
 
   setup do
@@ -139,6 +135,19 @@ class DirtyTest < ActiveModel::TestCase
     @model.name = "Jericho Cane"
     @model.save
     assert_equal [nil, "Jericho Cane"], @model.previous_changes['name']
+  end
+
+  test "setting new attributes should not affect previous changes" do
+    @model.name = "Jericho Cane"
+    @model.save
+    @model.name = "DudeFella ManGuy"
+    assert_equal [nil, "Jericho Cane"], @model.name_previous_change
+  end
+
+  test "saving should preserve model's previous changed status" do
+    @model.name = "Jericho Cane"
+    @model.save
+    assert @model.name_previously_changed?
   end
 
   test "previous value is preserved when changed after save" do

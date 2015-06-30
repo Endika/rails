@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
 
 API Documentation Guidelines
 ============================
@@ -16,7 +16,8 @@ RDoc
 ----
 
 The [Rails API documentation](http://api.rubyonrails.org) is generated with
-[RDoc](http://docs.seattlerb.org/rdoc/).
+[RDoc](http://docs.seattlerb.org/rdoc/). To generate it, make sure you are
+in the rails root directory, run `bundle install` and execute:
 
 ```bash
   bundle exec rake rdoc

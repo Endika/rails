@@ -14,7 +14,11 @@ silence_warnings do
 end
 
 require 'drb'
-require 'drb/unix'
+begin
+  require 'drb/unix'
+rescue LoadError
+  puts "'drb/unix' is not available"
+end
 require 'tempfile'
 
 PROCESS_COUNT = (ENV['N'] || 4).to_i
@@ -54,23 +58,8 @@ I18n.enforce_available_locales = false
 # Register danish language for testing
 I18n.backend.store_translations 'da', {}
 I18n.backend.store_translations 'pt-BR', {}
-ORIGINAL_LOCALES = I18n.available_locales.map(&:to_s).sort
 
 FIXTURE_LOAD_PATH = File.join(File.dirname(__FILE__), 'fixtures')
-FIXTURES = Pathname.new(FIXTURE_LOAD_PATH)
-
-module RackTestUtils
-  def body_to_string(body)
-    if body.respond_to?(:each)
-      str = ""
-      body.each {|s| str << s }
-      str
-    else
-      body
-    end
-  end
-  extend self
-end
 
 SharedTestRoutes = ActionDispatch::Routing::RouteSet.new
 
@@ -110,7 +99,7 @@ end
 module ActiveSupport
   class TestCase
     include ActionDispatch::DrawOnce
-    if ActiveSupport::Testing::Isolation.forking_env? && PROCESS_COUNT > 0
+    if RUBY_ENGINE == "ruby" && PROCESS_COUNT > 0
       parallelize_me!
     end
   end
@@ -126,22 +115,6 @@ class RoutedRackApp
 
   def call(env)
     @stack.call(env)
-  end
-end
-
-class BasicController
-  attr_accessor :request
-
-  def config
-    @config ||= ActiveSupport::InheritableOptions.new(ActionController::Base.config).tap do |config|
-      # VIEW TODO: View tests should not require a controller
-      public_dir = File.expand_path("../fixtures/public", __FILE__)
-      config.assets_dir = public_dir
-      config.javascripts_dir = "#{public_dir}/javascripts"
-      config.stylesheets_dir = "#{public_dir}/stylesheets"
-      config.assets          = ActiveSupport::InheritableOptions.new({ :prefix => "assets" })
-      config
-    end
   end
 end
 
@@ -259,6 +232,10 @@ class Rack::TestCase < ActionDispatch::IntegrationTest
 end
 
 module ActionController
+  class API
+    extend AbstractController::Railties::RoutesHelpers.with(SharedTestRoutes)
+  end
+
   class Base
     # This stub emulates the Railtie including the URL helpers from a Rails application
     extend AbstractController::Railties::RoutesHelpers.with(SharedTestRoutes)
@@ -407,7 +384,7 @@ module RoutingTestHelpers
 end
 
 class ResourcesController < ActionController::Base
-  def index() render :nothing => true end
+  def index() head :ok end
   alias_method :show, :index
 end
 
@@ -510,12 +487,7 @@ class ForkingExecutor
   end
 end
 
-if ActiveSupport::Testing::Isolation.forking_env? && PROCESS_COUNT > 0
+if RUBY_ENGINE == "ruby" && PROCESS_COUNT > 0
   # Use N processes (N defaults to 4)
   Minitest.parallel_executor = ForkingExecutor.new(PROCESS_COUNT)
 end
-
-# FIXME: we have tests that depend on run order, we should fix that and
-# remove this method call.
-require 'active_support/test_case'
-ActiveSupport::TestCase.test_order = :sorted

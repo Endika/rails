@@ -156,8 +156,8 @@ class NamespacedMailerGeneratorTest < NamespacedGeneratorTestCase
   def test_mailer_with_i18n_helper
     run_generator
     assert_file "app/mailers/test_app/notifier_mailer.rb" do |mailer|
-      assert_match(/en\.notifier\.foo\.subject/, mailer)
-      assert_match(/en\.notifier\.bar\.subject/, mailer)
+      assert_match(/en\.notifier_mailer\.foo\.subject/, mailer)
+      assert_match(/en\.notifier_mailer\.bar\.subject/, mailer)
     end
   end
 
@@ -173,20 +173,20 @@ class NamespacedMailerGeneratorTest < NamespacedGeneratorTestCase
 
   def test_invokes_default_template_engine
     run_generator
-    assert_file "app/views/test_app/notifier/foo.text.erb" do |view|
-      assert_match(%r(app/views/test_app/notifier/foo\.text\.erb), view)
+    assert_file "app/views/test_app/notifier_mailer/foo.text.erb" do |view|
+      assert_match(%r(app/views/test_app/notifier_mailer/foo\.text\.erb), view)
       assert_match(/<%= @greeting %>/, view)
     end
 
-    assert_file "app/views/test_app/notifier/bar.text.erb" do |view|
-      assert_match(%r(app/views/test_app/notifier/bar\.text\.erb), view)
+    assert_file "app/views/test_app/notifier_mailer/bar.text.erb" do |view|
+      assert_match(%r(app/views/test_app/notifier_mailer/bar\.text\.erb), view)
       assert_match(/<%= @greeting %>/, view)
     end
   end
 
   def test_invokes_default_template_engine_even_with_no_action
     run_generator ["notifier"]
-    assert_file "app/views/test_app/notifier"
+    assert_file "app/views/test_app/notifier_mailer"
   end
 end
 

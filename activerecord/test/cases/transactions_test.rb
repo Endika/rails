@@ -9,7 +9,7 @@ require 'models/post'
 require 'models/movie'
 
 class TransactionTest < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false
+  self.use_transactional_tests = false
   fixtures :topics, :developers, :authors, :posts
 
   def setup
@@ -584,6 +584,24 @@ class TransactionTest < ActiveRecord::TestCase
     assert_not topic.frozen?
   end
 
+  def test_rollback_of_frozen_records
+    topic = Topic.create.freeze
+    Topic.transaction do
+      topic.destroy
+      raise ActiveRecord::Rollback
+    end
+    assert topic.frozen?, 'frozen'
+  end
+
+  def test_rollback_for_freshly_persisted_records
+    topic = Topic.create
+    Topic.transaction do
+      topic.destroy
+      raise ActiveRecord::Rollback
+    end
+    assert topic.persisted?, 'persisted'
+  end
+
   def test_sqlite_add_column_in_transaction
     return true unless current_adapter?(:SQLite3Adapter)
 
@@ -668,7 +686,7 @@ class TransactionTest < ActiveRecord::TestCase
       end
     end
   ensure
-    connection.execute("DROP TABLE IF EXISTS transaction_without_primary_keys")
+    connection.drop_table 'transaction_without_primary_keys', if_exists: true
   end
 
   private
@@ -685,7 +703,7 @@ class TransactionTest < ActiveRecord::TestCase
 end
 
 class TransactionsWithTransactionalFixturesTest < ActiveRecord::TestCase
-  self.use_transactional_fixtures = true
+  self.use_transactional_tests = true
   fixtures :topics
 
   def test_automatic_savepoint_in_outer_transaction

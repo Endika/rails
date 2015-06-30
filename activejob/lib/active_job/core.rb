@@ -1,4 +1,6 @@
 module ActiveJob
+  # Provides general behavior that will be included into every Active Job
+  # object that inherits from ActiveJob::Base.
   module Core
     extend ActiveSupport::Concern
 
@@ -15,6 +17,9 @@ module ActiveJob
 
       # Queue in which the job will reside.
       attr_writer :queue_name
+
+      # ID optionally provided by adapter
+      attr_accessor :provider_job_id
     end
 
     # These methods will be included into any Active Job object, adding

@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
 
 Rails Nested Model Forms
 ========================
@@ -106,7 +106,7 @@ Consider the following typical RESTful controller which will prepare a new Perso
 class PeopleController < ApplicationController
   def new
     @person = Person.new
-    @person.built_address
+    @person.build_address
     2.times { @person.projects.build }
   end
 

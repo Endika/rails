@@ -1,6 +1,7 @@
 require 'erb'
 require 'yaml'
 require 'zlib'
+require 'set'
 require 'active_support/dependencies'
 require 'active_support/core_ext/digest/uuid'
 require 'active_record/fixture_set/file'
@@ -109,7 +110,7 @@ module ActiveRecord
   #   <% 1.upto(1000) do |i| %>
   #   fix_<%= i %>:
   #     id: <%= i %>
-  #     name: guy_<%= 1 %>
+  #     name: guy_<%= i %>
   #   <% end %>
   #
   # This will create 1000 very simple fixtures.
@@ -131,20 +132,20 @@ module ActiveRecord
   #         Digest::SHA2.hexdigest(File.read(Rails.root.join('test/fixtures', path)))
   #       end
   #     end
-  #     ActiveRecord::FixtureSet.context_class.send :include, FixtureFileHelpers
+  #     ActiveRecord::FixtureSet.context_class.include FixtureFileHelpers
   #
   # - use the helper method in a fixture
   #     photo:
   #       name: kitten.png
   #       sha: <%= file_sha 'files/kitten.png' %>
   #
-  # = Transactional Fixtures
+  # = Transactional Tests
   #
   # Test cases can use begin+rollback to isolate their changes to the database instead of having to
   # delete+insert for every test case.
   #
   #   class FooTest < ActiveSupport::TestCase
-  #     self.use_transactional_fixtures = true
+  #     self.use_transactional_tests = true
   #
   #     test "godzilla" do
   #       assert !Foo.all.empty?
@@ -158,14 +159,14 @@ module ActiveRecord
   #   end
   #
   # If you preload your test database with all fixture data (probably in the rake task) and use
-  # transactional fixtures, then you may omit all fixtures declarations in your test cases since
+  # transactional tests, then you may omit all fixtures declarations in your test cases since
   # all the data's already there and every case rolls back its changes.
   #
   # In order to use instantiated fixtures with preloaded data, set +self.pre_loaded_fixtures+ to
   # true. This will provide access to fixture data for every table that has been loaded through
   # fixtures (depending on the value of +use_instantiated_fixtures+).
   #
-  # When *not* to use transactional fixtures:
+  # When *not* to use transactional tests:
   #
   # 1. You're testing whether a transaction works correctly. Nested transactions don't commit until
   #    all parent transactions commit, particularly, the fixtures transaction which is begun in setup
@@ -521,12 +522,16 @@ module ActiveRecord
           update_all_loaded_fixtures fixtures_map
 
           connection.transaction(:requires_new => true) do
+            deleted_tables = Set.new
             fixture_sets.each do |fs|
               conn = fs.model_class.respond_to?(:connection) ? fs.model_class.connection : connection
               table_rows = fs.table_rows
 
               table_rows.each_key do |table|
-                conn.delete "DELETE FROM #{conn.quote_table_name(table)}", 'Fixture Delete'
+                unless deleted_tables.include? table
+                  conn.delete "DELETE FROM #{conn.quote_table_name(table)}", 'Fixture Delete'
+                end
+                deleted_tables << table
               end
 
               table_rows.each do |fixture_set_name, rows|
@@ -534,12 +539,10 @@ module ActiveRecord
                   conn.insert_fixture(row, fixture_set_name)
                 end
               end
-            end
 
-            # Cap primary key sequences to max(pk).
-            if connection.respond_to?(:reset_pk_sequence!)
-              fixture_sets.each do |fs|
-                connection.reset_pk_sequence!(fs.table_name)
+              # Cap primary key sequences to max(pk).
+              if conn.respond_to?(:reset_pk_sequence!)
+                conn.reset_pk_sequence!(fs.table_name)
               end
             end
           end
@@ -612,7 +615,6 @@ module ActiveRecord
     # a list of rows to insert to that table.
     def table_rows
       now = config.default_timezone == :utc ? Time.now.utc : Time.now
-      now = now.to_s(:db)
 
       # allow a standard key to be used for doing defaults in YAML
       fixtures.delete('DEFAULTS')
@@ -641,6 +643,11 @@ module ActiveRecord
             row[primary_key_name] = ActiveRecord::FixtureSet.identify(label, primary_key_type)
           end
 
+          # Resolve enums
+          model_class.defined_enums.each do |name, values|
+            row[name] = values.fetch(row[name], row[name])
+          end
+
           # If STI is used, find the correct subclass for association reflection
           reflection_class =
             if row.include?(inheritance_column_name)
@@ -661,7 +668,7 @@ module ActiveRecord
                   row[association.foreign_type] = $1
                 end
 
-                fk_type = association.active_record.columns_hash[fk_name].type
+                fk_type = reflection_class.type_for_attribute(fk_name).type
                 row[fk_name] = ActiveRecord::FixtureSet.identify(value, fk_type)
               end
             when :has_many
@@ -691,7 +698,7 @@ module ActiveRecord
       end
 
       def primary_key_type
-        @association.klass.column_types[@association.klass.primary_key].type
+        @association.klass.type_for_attribute(@association.klass.primary_key).type
       end
     end
 
@@ -703,6 +710,10 @@ module ActiveRecord
       def lhs_key
         @association.through_reflection.foreign_key
       end
+
+      def join_table
+        @association.through_reflection.table_name
+      end
     end
 
     private
@@ -711,7 +722,7 @@ module ActiveRecord
       end
 
       def primary_key_type
-        @primary_key_type ||= model_class && model_class.column_types[model_class.primary_key].type
+        @primary_key_type ||= model_class && model_class.type_for_attribute(model_class.primary_key).type
       end
 
       def add_join_records(rows, row, association)
@@ -828,19 +839,31 @@ module ActiveRecord
       class_attribute :fixture_path, :instance_writer => false
       class_attribute :fixture_table_names
       class_attribute :fixture_class_names
+      class_attribute :use_transactional_tests
       class_attribute :use_transactional_fixtures
       class_attribute :use_instantiated_fixtures # true, false, or :no_instances
       class_attribute :pre_loaded_fixtures
       class_attribute :config
 
+      singleton_class.deprecate 'use_transactional_fixtures=' => 'use use_transactional_tests= instead'
+
       self.fixture_table_names = []
-      self.use_transactional_fixtures = true
       self.use_instantiated_fixtures = false
       self.pre_loaded_fixtures = false
       self.config = ActiveRecord::Base
 
       self.fixture_class_names = Hash.new do |h, fixture_set_name|
         h[fixture_set_name] = ActiveRecord::FixtureSet.default_fixture_model_name(fixture_set_name, self.config)
+      end
+
+      silence_warnings do
+        define_singleton_method :use_transactional_tests do
+          if use_transactional_fixtures.nil?
+            true
+          else
+            use_transactional_fixtures
+          end
+        end
       end
     end
 
@@ -912,13 +935,13 @@ module ActiveRecord
     end
 
     def run_in_transaction?
-      use_transactional_fixtures &&
+      use_transactional_tests &&
         !self.class.uses_transaction?(method_name)
     end
 
     def setup_fixtures(config = ActiveRecord::Base)
-      if pre_loaded_fixtures && !use_transactional_fixtures
-        raise RuntimeError, 'pre_loaded_fixtures requires use_transactional_fixtures'
+      if pre_loaded_fixtures && !use_transactional_tests
+        raise RuntimeError, 'pre_loaded_fixtures requires use_transactional_tests'
       end
 
       @fixture_cache = {}

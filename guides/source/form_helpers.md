@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
 
 Form Helpers
 ============
@@ -241,7 +241,7 @@ Upon form submission the value entered by the user will be stored in `params[:pe
 
 WARNING: You must pass the name of an instance variable, i.e. `:person` or `"person"`, not an actual instance of your model object.
 
-Rails provides helpers for displaying the validation errors associated with a model object. These are covered in detail by the [Active Record Validations](./active_record_validations.html#displaying-validation-errors-in-views) guide.
+Rails provides helpers for displaying the validation errors associated with a model object. These are covered in detail by the [Active Record Validations](active_record_validations.html#displaying-validation-errors-in-views) guide.
 
 ### Binding a Form to an Object
 
@@ -275,14 +275,14 @@ There are a few things to note here:
 The resulting HTML is:
 
 ```html
-<form accept-charset="UTF-8" action="/articles/create" method="post" class="nifty_form">
+<form accept-charset="UTF-8" action="/articles" method="post" class="nifty_form">
   <input id="article_title" name="article[title]" type="text" />
   <textarea id="article_body" name="article[body]" cols="60" rows="12"></textarea>
   <input name="commit" type="submit" value="Create" />
 </form>
 ```
 
-The name passed to `form_for` controls the key used in `params` to access the form's values. Here the name is `article` and so all the inputs have names of the form `article[attribute_name]`. Accordingly, in the `create` action `params[:article]` will be a hash with keys `:title` and `:body`. You can read more about the significance of input names in the parameter_names section.
+The name passed to `form_for` controls the key used in `params` to access the form's values. Here the name is `article` and so all the inputs have names of the form `article[attribute_name]`. Accordingly, in the `create` action `params[:article]` will be a hash with keys `:title` and `:body`. You can read more about the significance of input names in the [parameter_names section](#understanding-parameter-naming-conventions).
 
 The helper methods called on the form builder are identical to the model object helpers except that it is not necessary to specify which object is being edited since this is already managed by the form builder.
 
@@ -291,8 +291,8 @@ You can create a similar binding without actually creating `<form>` tags with th
 ```erb
 <%= form_for @person, url: {action: "create"} do |person_form| %>
   <%= person_form.text_field :name %>
-  <%= fields_for @person.contact_detail do |contact_details_form| %>
-    <%= contact_details_form.text_field :phone_number %>
+  <%= fields_for @person.contact_detail do |contact_detail_form| %>
+    <%= contact_detail_form.text_field :phone_number %>
   <% end %>
 <% end %>
 ```
@@ -300,7 +300,7 @@ You can create a similar binding without actually creating `<form>` tags with th
 which produces the following output:
 
 ```html
-<form accept-charset="UTF-8" action="/people/create" class="new_person" id="new_person" method="post">
+<form accept-charset="UTF-8" action="/people" class="new_person" id="new_person" method="post">
   <input id="person_name" name="person[name]" type="text" />
   <input id="contact_detail_phone_number" name="contact_detail[phone_number]" type="text" />
 </form>
@@ -441,7 +441,7 @@ Whenever Rails sees that the internal value of an option being generated matches
 
 TIP: The second argument to `options_for_select` must be exactly equal to the desired internal value. In particular if the value is the integer `2` you cannot pass `"2"` to `options_for_select` - you must pass `2`. Be aware of values extracted from the `params` hash as they are all strings.
 
-WARNING: when `:include_blank` or `:prompt` are not present, `:include_blank` is forced true if the select attribute `required` is true, display `size` is one and `multiple` is not true.
+WARNING: When `:include_blank` or `:prompt` are not present, `:include_blank` is forced true if the select attribute `required` is true, display `size` is one and `multiple` is not true.
 
 You can add arbitrary attributes to the options using hashes:
 
@@ -687,7 +687,14 @@ class LabellingFormBuilder < ActionView::Helpers::FormBuilder
 end
 ```
 
-If you reuse this frequently you could define a `labeled_form_for` helper that automatically applies the `builder: LabellingFormBuilder` option.
+If you reuse this frequently you could define a `labeled_form_for` helper that automatically applies the `builder: LabellingFormBuilder` option:
+
+```ruby
+def labeled_form_for(record, options = {}, &block)
+  options.merge! builder: LabellingFormBuilder
+  form_for record, options, &block
+end
+```
 
 The form builder used also determines what happens when you do
 
@@ -722,7 +729,7 @@ The two basic structures are arrays and hashes. Hashes mirror the syntax used fo
 
 the `params` hash will contain
 
-```erb
+```ruby
 {'person' => {'name' => 'Henry'}}
 ```
 

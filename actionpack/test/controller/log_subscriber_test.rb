@@ -10,7 +10,7 @@ module Another
     end
 
     rescue_from SpecialException do
-      head :status => 406
+      head 406
     end
 
     before_action :redirector, only: :never_executed
@@ -19,7 +19,7 @@ module Another
     end
 
     def show
-      render :nothing => true
+      head :ok
     end
 
     def redirector
@@ -140,7 +140,7 @@ class ACLogSubscriberTest < ActionController::TestCase
   end
 
   def test_process_action_with_parameters
-    get :show, :id => '10'
+    get :show, params: { id: '10' }
     wait
 
     assert_equal 3, logs.size
@@ -148,8 +148,8 @@ class ACLogSubscriberTest < ActionController::TestCase
   end
 
   def test_multiple_process_with_parameters
-    get :show, :id => '10'
-    get :show, :id => '20'
+    get :show, params: { id: '10' }
+    get :show, params: { id: '20' }
 
     wait
 
@@ -160,7 +160,7 @@ class ACLogSubscriberTest < ActionController::TestCase
 
   def test_process_action_with_wrapped_parameters
     @request.env['CONTENT_TYPE'] = 'application/json'
-    post :show, :id => '10', :name => 'jose'
+    post :show, params: { id: '10', name: 'jose' }
     wait
 
     assert_equal 3, logs.size
@@ -170,7 +170,7 @@ class ACLogSubscriberTest < ActionController::TestCase
   def test_process_action_with_view_runtime
     get :show
     wait
-    assert_match(/\(Views: [\d.]+ms\)/, logs[1])
+    assert_match(/Completed 200 OK in [\d]ms/, logs[1])
   end
 
   def test_append_info_to_payload_is_called_even_with_exception
@@ -186,7 +186,9 @@ class ACLogSubscriberTest < ActionController::TestCase
   def test_process_action_with_filter_parameters
     @request.env["action_dispatch.parameter_filter"] = [:lifo, :amount]
 
-    get :show, :lifo => 'Pratik', :amount => '420', :step => '1'
+    get :show, params: {
+      lifo: 'Pratik', amount: '420', step: '1'
+    }
     wait
 
     params = logs[1]

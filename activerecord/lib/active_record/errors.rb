@@ -71,9 +71,9 @@ module ActiveRecord
   class RecordNotDestroyed < ActiveRecordError
     attr_reader :record
 
-    def initialize(record)
+    def initialize(message, record = nil)
       @record = record
-      super()
+      super(message)
     end
   end
 
@@ -179,17 +179,7 @@ module ActiveRecord
   end
 
   # Raised when unknown attributes are supplied via mass assignment.
-  class UnknownAttributeError < NoMethodError
-
-    attr_reader :record, :attribute
-
-    def initialize(record, attribute)
-      @record = record
-      @attribute = attribute.to_s
-      super("unknown attribute '#{attribute}' for #{@record.class}.")
-    end
-
-  end
+  UnknownAttributeError = ActiveModel::UnknownAttributeError
 
   # Raised when an error occurred while doing a mass assignment to an attribute through the
   # +attributes=+ method. The exception has an +attribute+ property that is the name of the

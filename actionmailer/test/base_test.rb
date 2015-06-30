@@ -1,4 +1,3 @@
-# encoding: utf-8
 require 'abstract_unit'
 require 'set'
 
@@ -287,7 +286,7 @@ class BaseTest < ActiveSupport::TestCase
       end
     end
 
-    assert_nothing_raised { LateAttachmentAccessorMailer.welcome }
+    assert_nothing_raised { LateAttachmentAccessorMailer.welcome.message }
   end
 
   # Implicit multipart

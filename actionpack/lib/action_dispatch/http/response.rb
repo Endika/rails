@@ -40,10 +40,9 @@ module ActionDispatch # :nodoc:
 
     attr_writer :sending_file
 
-    # Get and set headers for this response.
-    attr_accessor :header
+    # Get headers for this response.
+    attr_reader :header
 
-    alias_method :headers=, :header=
     alias_method :headers,  :header
 
     delegate :[], :[]=, :to => :@header
@@ -61,7 +60,7 @@ module ActionDispatch # :nodoc:
 
     # The charset of the response. HTML wants to know the encoding of the
     # content you're giving them, so we need to send that along.
-    attr_accessor :charset
+    attr_reader :charset
 
     CONTENT_TYPE = "Content-Type".freeze
     SET_COOKIE   = "Set-Cookie".freeze
@@ -113,12 +112,13 @@ module ActionDispatch # :nodoc:
     # The underlying body, as a streamable object.
     attr_reader :stream
 
-    def initialize(status = 200, header = {}, body = [])
+    def initialize(status = 200, header = {}, body = [], default_headers: self.class.default_headers)
       super()
 
-      header = merge_default_headers(header, self.class.default_headers)
+      header = merge_default_headers(header, default_headers)
+      @header = header
 
-      self.body, self.header, self.status = body, header, status
+      self.body, self.status = body, status
 
       @sending_file = false
       @blank        = false
@@ -127,7 +127,7 @@ module ActionDispatch # :nodoc:
       @sending      = false
       @sent         = false
       @content_type = nil
-      @charset      = nil
+      @charset      = self.class.default_charset
 
       if content_type = self[CONTENT_TYPE]
         type, charset = content_type.split(/;\s*charset=/)
@@ -185,6 +185,15 @@ module ActionDispatch # :nodoc:
     # Sets the HTTP content type.
     def content_type=(content_type)
       @content_type = content_type.to_s
+    end
+
+    # Sets the HTTP character set.
+    def charset=(charset)
+      if nil == charset
+        @charset = self.class.default_charset
+      else
+        @charset = charset
+      end
     end
 
     # The response code of the request.
@@ -274,10 +283,11 @@ module ActionDispatch # :nodoc:
     end
 
     # Turns the Response into a Rack-compatible array of the status, headers,
-    # and body. Allows explict splatting:
+    # and body. Allows explicit splatting:
     #
     #   status, headers, body = *response
     def to_a
+      commit!
       rack_response @status, @header.to_hash
     end
     alias prepare! to_a
@@ -302,15 +312,16 @@ module ActionDispatch # :nodoc:
   private
 
     def before_committed
+      return if committed?
+      assign_default_content_type_and_charset!
+      handle_conditional_get!
     end
 
     def before_sending
     end
 
     def merge_default_headers(original, default)
-      return original unless default.respond_to?(:merge)
-
-      default.merge(original)
+      default.respond_to?(:merge) ? default.merge(original) : original
     end
 
     def build_buffer(response, body)
@@ -321,16 +332,15 @@ module ActionDispatch # :nodoc:
       body.respond_to?(:each) ? body : [body]
     end
 
-    def assign_default_content_type_and_charset!(headers)
-      return if headers[CONTENT_TYPE].present?
+    def assign_default_content_type_and_charset!
+      return if self[CONTENT_TYPE].present?
 
       @content_type ||= Mime::HTML
-      @charset      ||= self.class.default_charset unless @charset == false
 
       type = @content_type.to_s.dup
-      type << "; charset=#{@charset}" if append_charset?
+      type << "; charset=#{charset}" if append_charset?
 
-      headers[CONTENT_TYPE] = type
+      self[CONTENT_TYPE] = type
     end
 
     def append_charset?
@@ -374,9 +384,6 @@ module ActionDispatch # :nodoc:
     end
 
     def rack_response(status, header)
-      assign_default_content_type_and_charset!(header)
-      handle_conditional_get!
-
       header[SET_COOKIE] = header[SET_COOKIE].join("\n") if header[SET_COOKIE].respond_to?(:join)
 
       if NO_CONTENT_CODES.include?(@status)

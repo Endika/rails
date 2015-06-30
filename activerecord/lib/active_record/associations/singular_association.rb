@@ -3,7 +3,7 @@ module ActiveRecord
     class SingularAssociation < Association #:nodoc:
       # Implements the reader method, e.g. foo.bar for Foo.has_one :bar
       def reader(force_reload = false)
-        if force_reload
+        if force_reload && klass
           klass.uncached { reload }
         elsif !loaded? || stale_target?
           reload
@@ -41,8 +41,7 @@ module ActiveRecord
         def get_records
           if reflection.scope_chain.any?(&:any?) ||
               scope.eager_loading? ||
-              klass.current_scope ||
-              klass.default_scopes.any?
+              klass.scope_attributes?
 
             return scope.limit(1).to_a
           end

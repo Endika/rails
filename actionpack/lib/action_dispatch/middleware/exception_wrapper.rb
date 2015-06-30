@@ -1,5 +1,6 @@
 require 'action_controller/metal/exceptions'
 require 'active_support/core_ext/module/attribute_accessors'
+require 'rack/utils'
 
 module ActionDispatch
   class ExceptionWrapper
@@ -16,7 +17,9 @@ module ActionDispatch
       'ActionController::InvalidCrossOriginRequest'   => :unprocessable_entity,
       'ActionDispatch::ParamsParser::ParseError'      => :bad_request,
       'ActionController::BadRequest'                  => :bad_request,
-      'ActionController::ParameterMissing'            => :bad_request
+      'ActionController::ParameterMissing'            => :bad_request,
+      'Rack::Utils::ParameterTypeError'               => :bad_request,
+      'Rack::Utils::InvalidParameterError'            => :bad_request
     )
 
     cattr_accessor :rescue_templates
@@ -87,8 +90,7 @@ module ActionDispatch
 
     def source_extracts
       backtrace.map do |trace|
-        file, line = trace.split(":")
-        line_number = line.to_i
+        file, line_number = extract_file_and_line_number(trace)
 
         {
           code: source_fragment(file, line_number),
@@ -137,6 +139,13 @@ module ActionDispatch
           Hash[*(start+1..(lines.count+start)).zip(lines).flatten]
         end
       end
+    end
+
+    def extract_file_and_line_number(trace)
+      # Split by the first colon followed by some digits, which works for both
+      # Windows and Unix path styles.
+      file, line = trace.match(/^(.+?):(\d+).*$/, &:captures) || trace
+      [file, line.to_i]
     end
 
     def expand_backtrace

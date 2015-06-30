@@ -418,7 +418,7 @@ module ActionDispatch
         # A pattern can also point to a +Rack+ endpoint i.e. anything that
         # responds to +call+:
         #
-        #   match 'photos/:id', to: lambda {|hash| [200, {}, ["Coming soon"]] }, via: :get
+        #   match 'photos/:id', to: -> (hash) { [200, {}, ["Coming soon"]] }, via: :get
         #   match 'photos/:id', to: PhotoRackApp, via: :get
         #   # Yes, controller actions are just rack endpoints
         #   match 'photos/:id', to: PhotosController.action(:show), via: :get
@@ -470,7 +470,7 @@ module ActionDispatch
         #   +call+ or a string representing a controller's action.
         #
         #      match 'path', to: 'controller#action', via: :get
-        #      match 'path', to: lambda { |env| [200, {}, ["Success!"]] }, via: :get
+        #      match 'path', to: -> (env) { [200, {}, ["Success!"]] }, via: :get
         #      match 'path', to: RackApp, via: :get
         #
         # [:on]
@@ -806,7 +806,7 @@ module ActionDispatch
         # Scopes routes to a specific controller
         #
         #   controller "food" do
-        #     match "bacon", action: "bacon"
+        #     match "bacon", action: :bacon, via: :get
         #   end
         def controller(controller, options={})
           options[:controller] = controller
@@ -899,7 +899,7 @@ module ActionDispatch
         #
         # Requests to routes can be constrained based on specific criteria:
         #
-        #    constraints(lambda { |req| req.env["HTTP_USER_AGENT"] =~ /iPhone/ }) do
+        #    constraints(-> (req) { req.env["HTTP_USER_AGENT"] =~ /iPhone/ }) do
         #      resources :iphones
         #    end
         #
@@ -1042,7 +1042,7 @@ module ActionDispatch
         class Resource #:nodoc:
           attr_reader :controller, :path, :options, :param
 
-          def initialize(entities, options = {})
+          def initialize(entities, api_only = false, options = {})
             @name       = entities.to_s
             @path       = (options[:path] || @name).to_s
             @controller = (options[:controller] || @name).to_s
@@ -1050,10 +1050,15 @@ module ActionDispatch
             @param      = (options[:param] || :id).to_sym
             @options    = options
             @shallow    = false
+            @api_only   = api_only
           end
 
           def default_actions
-            [:index, :create, :new, :show, :update, :destroy, :edit]
+            if @api_only
+              [:index, :create, :show, :update, :destroy]
+            else
+              [:index, :create, :new, :show, :update, :destroy, :edit]
+            end
           end
 
           def actions
@@ -1120,7 +1125,7 @@ module ActionDispatch
         end
 
         class SingletonResource < Resource #:nodoc:
-          def initialize(entities, options)
+          def initialize(entities, api_only, options)
             super
             @as         = nil
             @controller = (options[:controller] || plural).to_s
@@ -1128,7 +1133,11 @@ module ActionDispatch
           end
 
           def default_actions
-            [:show, :create, :update, :destroy, :new, :edit]
+            if @api_only
+              [:show, :create, :update, :destroy]
+            else
+              [:show, :create, :update, :destroy, :new, :edit]
+            end
           end
 
           def plural
@@ -1178,7 +1187,7 @@ module ActionDispatch
             return self
           end
 
-          resource_scope(:resource, SingletonResource.new(resources.pop, options)) do
+          resource_scope(:resource, SingletonResource.new(resources.pop, api_only?, options)) do
             yield if block_given?
 
             concerns(options[:concerns]) if options[:concerns]
@@ -1336,7 +1345,7 @@ module ActionDispatch
             return self
           end
 
-          resource_scope(:resources, Resource.new(resources.pop, options)) do
+          resource_scope(:resources, Resource.new(resources.pop, api_only?, options)) do
             yield if block_given?
 
             concerns(options[:concerns]) if options[:concerns]
@@ -1450,9 +1459,12 @@ module ActionDispatch
           parent_resource.instance_of?(Resource) && @scope[:shallow]
         end
 
-        # match 'path' => 'controller#action'
-        # match 'path', to: 'controller#action'
-        # match 'path', 'otherpath', on: :member, via: :get
+        # Matches a url pattern to one or more routes.
+        # For more information, see match[rdoc-ref:Base#match].
+        #
+        #   match 'path' => 'controller#action', via: patch
+        #   match 'path', to: 'controller#action', via: :post
+        #   match 'path', 'otherpath', on: :member, via: :get
         def match(path, *rest)
           if rest.empty? && Hash === path
             options  = path
@@ -1504,7 +1516,7 @@ module ActionDispatch
         end
 
         def using_match_shorthand?(path, options)
-          path && (options[:to] || options[:action]).nil? && path =~ %r{/[\w/]+$}
+          path && (options[:to] || options[:action]).nil? && path =~ %r{^/?[-\w]+/[-\w/]+$}
         end
 
         def decomposed_match(path, options) # :nodoc:
@@ -1678,7 +1690,7 @@ module ActionDispatch
           end
 
           def shallow_nesting_depth #:nodoc:
-            @nesting.select(&:shallow?).size
+            @nesting.count(&:shallow?)
           end
 
           def param_constraint? #:nodoc:
@@ -1739,9 +1751,10 @@ module ActionDispatch
               member_name = parent_resource.member_name
             end
 
-            name = @scope.action_name(name_prefix, prefix, collection_name, member_name)
+            action_name = @scope.action_name(name_prefix, prefix, collection_name, member_name)
+            candidate = action_name.select(&:present?).join('_')
 
-            if candidate = name.compact.join("_").presence
+            unless candidate.empty?
               # If a name was not explicitly given, we check if it is valid
               # and return nil in case it isn't. Otherwise, we pass the invalid name
               # forward so the underlying router engine treats it and raises an exception.
@@ -1763,6 +1776,10 @@ module ActionDispatch
               end
               delete :destroy if parent_resource.actions.include?(:destroy)
             end
+          end
+
+          def api_only?
+            @set.api_only?
           end
       end
 

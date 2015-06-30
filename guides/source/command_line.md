@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
 
 The Rails Command Line
 ======================
@@ -64,10 +64,10 @@ $ cd commandsapp
 $ bin/rails server
 => Booting WEBrick
 => Rails 5.0.0 application starting in development on http://localhost:3000
-=> Call with -d to detach
+=> Run `rails server -h` for more startup options
 => Ctrl-C to shutdown server
 [2013-08-07 02:00:01] INFO  WEBrick 1.3.1
-[2013-08-07 02:00:01] INFO  ruby 2.0.0 (2013-06-27) [x86_64-darwin11.2.0]
+[2013-08-07 02:00:01] INFO  ruby 2.2.2 (2015-06-27) [x86_64-darwin11.2.0]
 [2013-08-07 02:00:01] INFO  WEBrick::HTTPServer#start: pid=69680 port=3000
 ```
 
@@ -338,6 +338,12 @@ You can specify the environment in which the `runner` command should operate usi
 $ bin/rails runner -e staging "Model.long_running_method"
 ```
 
+You can even execute ruby code written in a file with runner.
+
+```bash
+$ bin/rails runner lib/code_to_be_run.rb
+```
+
 ### `rails destroy`
 
 Think of `destroy` as the opposite of `generate`. It'll figure out what generate did, and undo it.
@@ -396,8 +402,8 @@ INFO: You can also use `rake -T`  to get the list of tasks.
 $ bin/rake about
 About your application's environment
 Rails version             5.0.0
-Ruby version              2.2.0 (x86_64-linux)
-RubyGems version          2.4.5
+Ruby version              2.2.2 (x86_64-linux)
+RubyGems version          2.4.6
 Rack version              1.6
 JavaScript Runtime        Node.js (V8)
 Middleware                Rack::Sendfile, ActionDispatch::Static, Rack::Lock, #<ActiveSupport::Cache::Strategy::LocalCache::Middleware:0x007ffd131a7c88>, Rack::Runtime, Rack::MethodOverride, ActionDispatch::RequestId, Rails::Rack::Logger, ActionDispatch::ShowExceptions, ActionDispatch::DebugExceptions, ActionDispatch::RemoteIp, ActionDispatch::Reloader, ActionDispatch::Callbacks, ActiveRecord::Migration::CheckPending, ActiveRecord::ConnectionAdapters::ConnectionManagement, ActiveRecord::QueryCache, ActionDispatch::Cookies, ActionDispatch::Session::CookieStore, ActionDispatch::Flash, ActionDispatch::ParamsParser, Rack::Head, Rack::ConditionalGet, Rack::ETag
@@ -417,15 +423,7 @@ If you want to clear `public/assets` completely, you can use `rake assets:clobbe
 
 The most common tasks of the `db:` Rake namespace are `migrate` and `create`, and it will pay off to try out all of the migration rake tasks (`up`, `down`, `redo`, `reset`). `rake db:version` is useful when troubleshooting, telling you the current version of the database.
 
-More information about migrations can be found in the [Migrations](migrations.html) guide.
-
-### `doc`
-
-The `doc:` namespace has the tools to generate documentation for your app, API documentation, guides. Documentation can also be stripped which is mainly useful for slimming your codebase, like if you're writing a Rails application for an embedded platform.
-
-* `rake doc:app` generates documentation for your application in `doc/app`.
-* `rake doc:guides` generates Rails guides in `doc/guides`.
-* `rake doc:rails` generates API documentation for Rails in `doc/api`.
+More information about migrations can be found in the [Migrations](active_record_migrations.html) guide.
 
 ### `notes`
 
@@ -472,7 +470,7 @@ app/models/article.rb:
 
 NOTE. When using specific annotations and custom annotations, the annotation name (FIXME, BUG etc) is not displayed in the output lines.
 
-By default, `rake notes` will look in the `app`, `config`, `lib`, `bin` and `test` directories. If you would like to search other directories, you can provide them as a comma separated list in an environment variable `SOURCE_ANNOTATION_DIRECTORIES`.
+By default, `rake notes` will look in the `app`, `config`, `db`, `lib` and `test` directories. If you would like to search other directories, you can provide them as a comma separated list in an environment variable `SOURCE_ANNOTATION_DIRECTORIES`.
 
 ```bash
 $ export SOURCE_ANNOTATION_DIRECTORIES='spec,vendor'
@@ -528,8 +526,8 @@ end
 To pass arguments to your custom rake task:
 
 ```ruby
-task :task_name, [:arg_1] => [:pre_1, :pre_2] do |t, args|
-  # You can use args from here
+task :task_name, [:arg_1] => [:prerequisite_1, :prerequisite_2] do |task, args|
+  argument_1 = args.arg_1
 end
 ```
 

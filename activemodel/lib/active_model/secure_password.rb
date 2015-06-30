@@ -26,7 +26,7 @@ module ActiveModel
       # it). When this attribute has a +nil+ value, the validation will not be
       # triggered.
       #
-      # For further customizability, it is possible to supress the default
+      # For further customizability, it is possible to suppress the default
       # validations by passing <tt>validations: false</tt> as an argument.
       #
       # Add bcrypt (~> 3.1.7) to Gemfile to use #has_secure_password:
@@ -76,13 +76,6 @@ module ActiveModel
 
           validates_length_of :password, maximum: ActiveModel::SecurePassword::MAX_PASSWORD_LENGTH_ALLOWED
           validates_confirmation_of :password, allow_blank: true
-        end
-
-        # This code is necessary as long as the protected_attributes gem is supported.
-        if respond_to?(:attributes_protected_by_default)
-          def self.attributes_protected_by_default #:nodoc:
-            super + ['password_digest']
-          end
         end
       end
     end
