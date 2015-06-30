@@ -68,6 +68,9 @@ module ActiveRecord
         def increment_counter(counter_cache_name)
           if foreign_key_present?
             klass.increment_counter(counter_cache_name, target_id)
+            if target && !stale_target?
+              target.increment(counter_cache_name)
+            end
           end
         end
 
@@ -104,7 +107,7 @@ module ActiveRecord
         end
 
         def stale_state
-          result = owner._read_attribute(reflection.foreign_key)
+          result = owner._read_attribute(reflection.foreign_key) { |n| owner.send(:missing_attribute, n, caller) }
           result && result.to_s
         end
     end

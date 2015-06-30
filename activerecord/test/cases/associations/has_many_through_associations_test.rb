@@ -84,11 +84,11 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     subscriber   = make_model "Subscriber"
 
     subscriber.primary_key = 'nick'
-    subscription.belongs_to :book,       class: book
-    subscription.belongs_to :subscriber, class: subscriber
+    subscription.belongs_to :book,       anonymous_class: book
+    subscription.belongs_to :subscriber, anonymous_class: subscriber
 
-    book.has_many :subscriptions, class: subscription
-    book.has_many :subscribers, through: :subscriptions, class: subscriber
+    book.has_many :subscriptions, anonymous_class: subscription
+    book.has_many :subscribers, through: :subscriptions, anonymous_class: subscriber
 
     anonbook = book.first
     namebook = Book.find anonbook.id
@@ -154,10 +154,10 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     lesson_student = make_model 'LessonStudent'
     lesson_student.table_name = 'lessons_students'
 
-    lesson_student.belongs_to :lesson, :class => lesson
-    lesson_student.belongs_to :student, :class => student
-    lesson.has_many :lesson_students, :class => lesson_student
-    lesson.has_many :students, :through => :lesson_students, :class => student
+    lesson_student.belongs_to :lesson, :anonymous_class => lesson
+    lesson_student.belongs_to :student, :anonymous_class => student
+    lesson.has_many :lesson_students, :anonymous_class => lesson_student
+    lesson.has_many :students, :through => :lesson_students, :anonymous_class => student
     [lesson, lesson_student, student]
   end
 
@@ -595,6 +595,12 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     assert posts(:thinking).reload.people(true).collect(&:first_name).include?("Jeb")
   end
 
+  def test_through_record_is_built_when_created_with_where
+    assert_difference("posts(:thinking).readers.count", 1) do
+      posts(:thinking).people.where(first_name: "Jeb").create
+    end
+  end
+
   def test_associate_with_create_and_no_options
     peeps = posts(:thinking).people.count
     posts(:thinking).people.create(:first_name => 'foo')
@@ -954,7 +960,7 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     assert_equal 1, category.categorizations.where(:special => true).count
   end
 
-  def test_joining_has_many_through_with_uniq
+  def test_joining_has_many_through_with_distinct
     mary = Author.joins(:unique_categorized_posts).where(:id => authors(:mary).id).first
     assert_equal 1, mary.unique_categorized_posts.length
     assert_equal 1, mary.unique_categorized_post_ids.length
@@ -1034,14 +1040,6 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     end
   end
 
-  def test_save_should_not_raise_exception_when_join_record_has_errors
-    repair_validations(Categorization) do
-      Categorization.validate { |r| r.errors[:base] << 'Invalid Categorization' }
-      c = Category.create(:name => 'Fishing', :authors => [Author.first])
-      c.save
-    end
-  end
-
   def test_assign_array_to_new_record_builds_join_records
     c = Category.new(:name => 'Fishing', :authors => [Author.first])
     assert_equal 1, c.categorizations.size
@@ -1066,11 +1064,11 @@ class HasManyThroughAssociationsTest < ActiveRecord::TestCase
     end
   end
 
-  def test_create_bang_returns_falsy_when_join_record_has_errors
+  def test_save_returns_falsy_when_join_record_has_errors
     repair_validations(Categorization) do
       Categorization.validate { |r| r.errors[:base] << 'Invalid Categorization' }
       c = Category.new(:name => 'Fishing', :authors => [Author.first])
-      assert !c.save
+      assert_not c.save
     end
   end
 

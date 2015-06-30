@@ -99,7 +99,7 @@ module ApplicationTests
     end
 
     def test_code_statistics_sanity
-      assert_match "Code LOC: 5     Test LOC: 0     Code to Test Ratio: 1:0.0",
+      assert_match "Code LOC: 7     Test LOC: 0     Code to Test Ratio: 1:0.0",
         Dir.chdir(app_path){ `rake stats` }
     end
 
@@ -190,17 +190,39 @@ module ApplicationTests
          bundle exec rake db:migrate test`
       end
 
-      assert_match(/7 runs, 13 assertions, 0 failures, 0 errors/, output)
+      assert_match(/7 runs, 12 assertions, 0 failures, 0 errors/, output)
       assert_no_match(/Errors running/, output)
     end
 
-    def test_scaffold_with_references_columns_tests_pass_by_default
+    def test_api_scaffold_tests_pass_by_default
+      add_to_config <<-RUBY
+        config.api_only = true
+      RUBY
+
+      app_file "app/controllers/application_controller.rb", <<-RUBY
+        class ApplicationController < ActionController::API
+        end
+      RUBY
+
+      output = Dir.chdir(app_path) do
+        `rails generate scaffold user username:string password:string;
+         bundle exec rake db:migrate test`
+      end
+
+      assert_match(/5 runs, 7 assertions, 0 failures, 0 errors/, output)
+      assert_no_match(/Errors running/, output)
+    end
+
+    def test_scaffold_with_references_columns_tests_pass_when_belongs_to_is_optional
+      app_file "config/initializers/active_record_belongs_to_required_by_default.rb",
+        "Rails.application.config.active_record.belongs_to_required_by_default = false"
+
       output = Dir.chdir(app_path) do
         `rails generate scaffold LineItems product:references cart:belongs_to;
          bundle exec rake db:migrate test`
       end
 
-      assert_match(/7 runs, 13 assertions, 0 failures, 0 errors/, output)
+      assert_match(/7 runs, 12 assertions, 0 failures, 0 errors/, output)
       assert_no_match(/Errors running/, output)
     end
 
@@ -227,7 +249,7 @@ module ApplicationTests
     def test_rake_dump_structure_should_respect_db_structure_env_variable
       Dir.chdir(app_path) do
         # ensure we have a schema_migrations table to dump
-        `bundle exec rake db:migrate db:structure:dump DB_STRUCTURE=db/my_structure.sql`
+        `bundle exec rake db:migrate db:structure:dump SCHEMA=db/my_structure.sql`
       end
       assert File.exist?(File.join(app_path, 'db', 'my_structure.sql'))
     end
@@ -281,6 +303,13 @@ module ApplicationTests
       end
 
       assert_match(/Hello, World!/, output)
+    end
+
+    def test_tmp_clear_should_work_if_folder_missing
+      FileUtils.remove_dir("#{app_path}/tmp")
+      errormsg = Dir.chdir(app_path) { `bundle exec rake tmp:clear` }
+      assert_predicate $?, :success?
+      assert_empty errormsg
     end
   end
 end

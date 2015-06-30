@@ -33,10 +33,10 @@ module ActiveRecord
           reload
         end
 
-        if owner.new_record?
+        if null_scope?
           # Cache the proxy separately before the owner has an id
           # or else a post-save proxy will still lack the id
-          @new_record_proxy ||= CollectionProxy.create(klass, self)
+          @null_proxy ||= CollectionProxy.create(klass, self)
         else
           @proxy ||= CollectionProxy.create(klass, self)
         end
@@ -63,7 +63,7 @@ module ActiveRecord
       def ids_writer(ids)
         pk_type = reflection.primary_key_type
         ids = Array(ids).reject(&:blank?)
-        ids.map! { |i| pk_type.type_cast_from_user(i) }
+        ids.map! { |i| pk_type.cast(i) }
         replace(klass.find(ids).index_by(&:id).values_at(*ids))
       end
 
@@ -129,6 +129,16 @@ module ActiveRecord
         first_nth_or_last(:last, *args)
       end
 
+      def take(n = nil)
+        if loaded?
+          n ? target.take(n) : target.first
+        else
+          scope.take(n).tap do |record|
+            set_inverse_instance record if record.is_a? ActiveRecord::Base
+          end
+        end
+      end
+
       def build(attributes = {}, &block)
         if attributes.is_a?(Array)
           attributes.collect { |attr| build(attr, &block) }
@@ -151,6 +161,7 @@ module ActiveRecord
       # be chained. Since << flattens its argument list and inserts each record,
       # +push+ and +concat+ behave identically.
       def concat(*records)
+        records = records.flatten
         if owner.new_record?
           load_target
           concat_records(records)
@@ -318,7 +329,8 @@ module ActiveRecord
       end
 
       # Returns true if the collections is not empty.
-      # Equivalent to +!collection.empty?+.
+      # If block given, loads all records and checks for one or more matches.
+      # Otherwise, equivalent to +!collection.empty?+.
       def any?
         if block_given?
           load_target.any? { |*block_args| yield(*block_args) }
@@ -328,7 +340,8 @@ module ActiveRecord
       end
 
       # Returns true if the collection has more than 1 record.
-      # Equivalent to +collection.size > 1+.
+      # If block given, loads all records and checks for two or more matches.
+      # Otherwise, equivalent to +collection.size > 1+.
       def many?
         if block_given?
           load_target.many? { |*block_args| yield(*block_args) }
@@ -357,6 +370,8 @@ module ActiveRecord
           replace_common_records_in_memory(other_array, original_target)
           if other_array != original_target
             transaction { replace_records(other_array, original_target) }
+          else
+            other_array
           end
         end
       end
@@ -419,8 +434,7 @@ module ActiveRecord
       def get_records
         if reflection.scope_chain.any?(&:any?) ||
           scope.eager_loading? ||
-          klass.current_scope ||
-          klass.default_scopes.any?
+          klass.scope_attributes?
 
           return scope.to_a
         end
@@ -549,7 +563,7 @@ module ActiveRecord
         def concat_records(records, should_raise = false)
           result = true
 
-          records.flatten.each do |record|
+          records.each do |record|
             raise_on_type_mismatch!(record)
             add_to_target(record) do |rec|
               result &&= insert_record(rec, true, should_raise) unless owner.new_record?

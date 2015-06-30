@@ -43,7 +43,7 @@ class TestAutosaveAssociationsInGeneral < ActiveRecord::TestCase
     reference = Class.new(ActiveRecord::Base) {
       self.table_name = "references"
       def self.name; 'Reference'; end
-      belongs_to :person, autosave: true, class: person
+      belongs_to :person, autosave: true, anonymous_class: person
     }
 
     u = person.create!(first_name: 'cool')
@@ -629,7 +629,7 @@ class TestDefaultAutosaveAssociationOnNewRecord < ActiveRecord::TestCase
 end
 
 class TestDestroyAsPartOfAutosaveAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false
+  self.use_transactional_tests = false
 
   setup do
     @pirate = Pirate.create(:catchphrase => "Don' botharrr talkin' like one, savvy?")
@@ -637,7 +637,7 @@ class TestDestroyAsPartOfAutosaveAssociation < ActiveRecord::TestCase
   end
 
   teardown do
-    # We are running without transactional fixtures and need to cleanup.
+    # We are running without transactional tests and need to cleanup.
     Bird.delete_all
     Parrot.delete_all
     @ship.delete
@@ -1009,7 +1009,7 @@ class TestDestroyAsPartOfAutosaveAssociation < ActiveRecord::TestCase
 end
 
 class TestAutosaveAssociationOnAHasOneAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1061,11 +1061,16 @@ class TestAutosaveAssociationOnAHasOneAssociation < ActiveRecord::TestCase
   end
 
   def test_should_not_ignore_different_error_messages_on_the_same_attribute
+    old_validators = Ship._validators.deep_dup
+    old_callbacks = Ship._validate_callbacks.deep_dup
     Ship.validates_format_of :name, :with => /\w/
     @pirate.ship.name   = ""
     @pirate.catchphrase = nil
     assert @pirate.invalid?
     assert_equal ["can't be blank", "is invalid"], @pirate.errors[:"ship.name"]
+  ensure
+    Ship._validators = old_validators if old_validators
+    Ship._validate_callbacks = old_callbacks if old_callbacks
   end
 
   def test_should_still_allow_to_bypass_validations_on_the_associated_model
@@ -1140,7 +1145,7 @@ class TestAutosaveAssociationOnAHasOneAssociation < ActiveRecord::TestCase
 end
 
 class TestAutosaveAssociationOnAHasOneThroughAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1161,7 +1166,7 @@ class TestAutosaveAssociationOnAHasOneThroughAssociation < ActiveRecord::TestCas
 end
 
 class TestAutosaveAssociationOnABelongsToAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1271,6 +1276,16 @@ module AutosaveAssociationOnACollectionAssociationTests
 
     @pirate.save!
     assert_equal new_names, @pirate.reload.send(@association_name).map(&:name)
+  end
+
+  def test_should_update_children_when_autosave_is_true_and_parent_is_new_but_child_is_not
+    parrot = Parrot.create!(name: "Polly")
+    parrot.name = "Squawky"
+    pirate = Pirate.new(parrots: [parrot], catchphrase: "Arrrr")
+
+    pirate.save!
+
+    assert_equal "Squawky", parrot.reload.name
   end
 
   def test_should_automatically_validate_the_associated_models
@@ -1409,7 +1424,7 @@ module AutosaveAssociationOnACollectionAssociationTests
 end
 
 class TestAutosaveAssociationOnAHasManyAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1425,7 +1440,7 @@ class TestAutosaveAssociationOnAHasManyAssociation < ActiveRecord::TestCase
 end
 
 class TestAutosaveAssociationOnAHasAndBelongsToManyAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1442,7 +1457,7 @@ class TestAutosaveAssociationOnAHasAndBelongsToManyAssociation < ActiveRecord::T
 end
 
 class TestAutosaveAssociationOnAHasAndBelongsToManyAssociationWithAcceptsNestedAttributes < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1459,7 +1474,7 @@ class TestAutosaveAssociationOnAHasAndBelongsToManyAssociationWithAcceptsNestedA
 end
 
 class TestAutosaveAssociationValidationsOnAHasManyAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1476,7 +1491,7 @@ class TestAutosaveAssociationValidationsOnAHasManyAssociation < ActiveRecord::Te
 end
 
 class TestAutosaveAssociationValidationsOnAHasOneAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1499,7 +1514,7 @@ class TestAutosaveAssociationValidationsOnAHasOneAssociation < ActiveRecord::Tes
 end
 
 class TestAutosaveAssociationValidationsOnABelongsToAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1520,7 +1535,7 @@ class TestAutosaveAssociationValidationsOnABelongsToAssociation < ActiveRecord::
 end
 
 class TestAutosaveAssociationValidationsOnAHABTMAssociation < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super
@@ -1543,7 +1558,7 @@ class TestAutosaveAssociationValidationsOnAHABTMAssociation < ActiveRecord::Test
 end
 
 class TestAutosaveAssociationValidationMethodsGeneration < ActiveRecord::TestCase
-  self.use_transactional_fixtures = false unless supports_savepoints?
+  self.use_transactional_tests = false unless supports_savepoints?
 
   def setup
     super

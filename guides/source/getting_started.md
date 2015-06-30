@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
 
 Getting Started with Rails
 ==========================
@@ -23,7 +23,8 @@ application from scratch. It does not assume that you have any prior experience
 with Rails. However, to get the most out of it, you need to have some
 prerequisites installed:
 
-* The [Ruby](https://www.ruby-lang.org/en/downloads) language version 1.9.3 or newer.
+* The [Ruby](https://www.ruby-lang.org/en/downloads) language version 2.2.2 or newer. 
+* Right version of [Development Kit](http://rubyinstaller.org/downloads/), if you are using Windows
 * The [RubyGems](https://rubygems.org) packaging system, which is installed with Ruby
   versions 1.9 and later. To learn more about RubyGems, please read the [RubyGems Guides](http://guides.rubygems.org).
 * A working installation of the [SQLite3 Database](https://www.sqlite.org).
@@ -50,7 +51,7 @@ code while accomplishing more than many other languages and frameworks.
 Experienced Rails developers also report that it makes web application
 development more fun.
 
-Rails is opinionated software. It makes the assumption that there is the "best"
+Rails is opinionated software. It makes the assumption that there is a "best"
 way to do things, and it's designed to encourage that way - and in some cases to
 discourage alternatives. If you learn "The Rails Way" you'll probably discover a
 tremendous increase in productivity. If you persist in bringing old habits from
@@ -97,7 +98,7 @@ For more installation methods for most Operating Systems take a look at
 
 ```bash
 $ ruby -v
-ruby 2.0.0p353
+ruby 2.2.2p95
 ```
 
 Many popular UNIX-like OSes ship with an acceptable version of SQLite3.
@@ -193,6 +194,9 @@ following in the `blog` directory:
 $ bin/rails server
 ```
 
+TIP: If you are using Windows, you have to pass the scripts under the `bin`
+folder directly to the Ruby interpreter e.g. `ruby bin\rails server`.
+
 TIP: Compiling CoffeeScript and JavaScript asset compression requires you
 have a JavaScript runtime available on your system, in the absence
 of a runtime you will see an `execjs` error during asset compilation.
@@ -201,7 +205,7 @@ Rails adds the `therubyracer` gem to the generated `Gemfile` in a
 commented line for new apps and you can uncomment if you need it.
 `therubyrhino` is the recommended runtime for JRuby users and is added by
 default to the `Gemfile` in apps generated under JRuby. You can investigate
-all the supported runtimes at [ExecJS](https://github.com/sstephenson/execjs#readme).
+all the supported runtimes at [ExecJS](https://github.com/rails/execjs#readme).
 
 This will fire up WEBrick, a web server distributed with Ruby by default. To see
 your application in action, open a browser window and navigate to
@@ -295,6 +299,7 @@ Rails.application.routes.draw do
 
   # The priority is based upon order of creation:
   # first created -> highest priority.
+  # See how all your routes lay out with "rake routes".
   #
   # You can have the root of your site routed with "root"
   # root 'welcome#index'
@@ -318,9 +323,9 @@ root 'welcome#index'
 application to the welcome controller's index action and `get 'welcome/index'`
 tells Rails to map requests to <http://localhost:3000/welcome/index> to the
 welcome controller's index action. This was created earlier when you ran the
-controller generator (`rails generate controller welcome index`).
+controller generator (`bin/rails generate controller welcome index`).
 
-Launch the web server again if you stopped it to generate the controller (`rails
+Launch the web server again if you stopped it to generate the controller (`bin/rails
 server`) and navigate to <http://localhost:3000> in your browser. You'll see the
 "Hello, Rails!" message you put into `app/views/welcome/index.html.erb`,
 indicating that this new route is indeed going to `WelcomeController`'s `index`
@@ -353,7 +358,7 @@ Rails.application.routes.draw do
 end
 ```
 
-If you run `rake routes`, you'll see that it has defined routes for all the
+If you run `bin/rake routes`, you'll see that it has defined routes for all the
 standard RESTful actions.  The meaning of the prefix column (and other columns)
 will be seen later, but for now notice that Rails has inferred the
 singular form `article` and makes meaningful use of the distinction.
@@ -374,7 +379,7 @@ edit_article GET    /articles/:id/edit(.:format) articles#edit
 
 In the next section, you will add the ability to create new articles in your
 application and be able to view them. This is the "C" and the "R" from CRUD:
-creation and reading. The form for doing this will look like this:
+create and read. The form for doing this will look like this:
 
 ![The new article form](images/getting_started/new_article.png)
 
@@ -397,7 +402,7 @@ a controller called `ArticlesController`. You can do this by running this
 command:
 
 ```bash
-$ bin/rails g controller articles
+$ bin/rails generate controller articles
 ```
 
 If you open up the newly generated `app/controllers/articles_controller.rb`
@@ -553,7 +558,7 @@ this:
 
 In this example, the `articles_path` helper is passed to the `:url` option.
 To see what Rails will do with this, we look back at the output of
-`rake routes`:
+`bin/rake routes`:
 
 ```bash
 $ bin/rake routes
@@ -663,7 +668,7 @@ models, as that will be done automatically by Active Record.
 
 ### Running a Migration
 
-As we've just seen, `rails generate model` created a _database migration_ file
+As we've just seen, `bin/rails generate model` created a _database migration_ file
 inside the `db/migrate` directory. Migrations are Ruby classes that are
 designed to make it simple to create and modify database tables. Rails uses
 rake commands to run migrations, and it's possible to undo a migration after
@@ -716,7 +721,7 @@ NOTE. Because you're working in the development environment by default, this
 command will apply to the database defined in the `development` section of your
 `config/database.yml` file. If you would like to execute migrations in another
 environment, for instance in production, you must explicitly pass it when
-invoking the command: `rake db:migrate RAILS_ENV=production`.
+invoking the command: `bin/rake db:migrate RAILS_ENV=production`.
 
 ### Saving data in the controller
 
@@ -803,7 +808,7 @@ If you submit the form again now, Rails will complain about not finding the
 `show` action. That's not very useful though, so let's add the `show` action
 before proceeding.
 
-As we have seen in the output of `rake routes`, the route for `show` action is
+As we have seen in the output of `bin/rake routes`, the route for `show` action is
 as follows:
 
 ```
@@ -833,7 +838,7 @@ class ArticlesController < ApplicationController
   def new
   end
 
-  # snipped for brevity
+  # snippet for brevity
 ```
 
 A couple of things to note. We use `Article.find` to find the article we're
@@ -865,7 +870,7 @@ Visit <http://localhost:3000/articles/new> and give it a try!
 ### Listing all articles
 
 We still need a way to list all our articles, so let's do that.
-The route for this as per output of `rake routes` is:
+The route for this as per output of `bin/rake routes` is:
 
 ```
 articles GET    /articles(.:format)          articles#index
@@ -889,7 +894,7 @@ class ArticlesController < ApplicationController
   def new
   end
 
-  # snipped for brevity
+  # snippet for brevity
 ```
 
 And then finally, add the view for this action, located at
@@ -908,6 +913,7 @@ And then finally, add the view for this action, located at
     <tr>
       <td><%= article.title %></td>
       <td><%= article.text %></td>
+      <td><%= link_to 'Show', article_path(article) %></td>
     </tr>
   <% end %>
 </table>
@@ -1236,10 +1242,9 @@ article we want to show the form back to the user.
 We reuse the `article_params` method that we defined earlier for the create
 action.
 
-TIP: You don't need to pass all attributes to `update`. For
-example, if you'd call `@article.update(title: 'A new title')`
-Rails would only update the `title` attribute, leaving all other
-attributes untouched.
+TIP: It is not necessary to pass all the attributes to `update`. For example,
+if `@article.update(title: 'A new title')` was called, Rails would only update
+the `title` attribute, leaving all other attributes untouched.
 
 Finally, we want to show a link to the `edit` action in the list of all the
 articles, so let's add that now to `app/views/articles/index.html.erb` to make
@@ -1271,8 +1276,8 @@ bottom of the template:
 ```html+erb
 ...
 
-<%= link_to 'Back', articles_path %> |
-<%= link_to 'Edit', edit_article_path(@article) %>
+<%= link_to 'Edit', edit_article_path(@article) %> |
+<%= link_to 'Back', articles_path %>
 ```
 
 And here's how our app looks so far:
@@ -1359,7 +1364,7 @@ Then do the same for the `app/views/articles/edit.html.erb` view:
 
 We're now ready to cover the "D" part of CRUD, deleting articles from the
 database. Following the REST convention, the route for
-deleting articles as per output of `rake routes` is:
+deleting articles as per output of `bin/rake routes` is:
 
 ```ruby
 DELETE /articles/:id(.:format)      articles#destroy
@@ -1475,15 +1480,19 @@ Finally, add a 'Destroy' link to your `index` action template
 ```
 
 Here we're using `link_to` in a different way. We pass the named route as the
-second argument, and then the options as another argument. The `:method` and
-`:'data-confirm'` options are used as HTML5 attributes so that when the link is
-clicked, Rails will first show a confirm dialog to the user, and then submit the
-link with method `delete`.  This is done via the JavaScript file `jquery_ujs`
-which is automatically included into your application's layout
-(`app/views/layouts/application.html.erb`) when you generated the application.
-Without this file, the confirmation dialog box wouldn't appear.
+second argument, and then the options as another argument. The `method: :delete`
+and `data: { confirm: 'Are you sure?' }` options are used as HTML5 attributes so
+that when the link is clicked, Rails will first show a confirm dialog to the
+user, and then submit the link with method `delete`.  This is done via the
+JavaScript file `jquery_ujs` which is automatically included in your
+application's layout (`app/views/layouts/application.html.erb`) when you
+generated the application. Without this file, the confirmation dialog box won't
+appear.
 
 ![Confirm Dialog](images/getting_started/confirm_dialog.png)
+
+TIP: Learn more about jQuery Unobtrusive Adapter (jQuery UJS) on
+[Working With JavaScript in Rails](working_with_javascript_in_rails.html) guide.
 
 Congratulations, you can now create, show, list, update and destroy
 articles.
@@ -1502,7 +1511,7 @@ comments on articles.
 
 We're going to see the same generator that we used before when creating
 the `Article` model. This time we'll create a `Comment` model to hold
-reference of article comments. Run this command in your terminal:
+reference to an article. Run this command in your terminal:
 
 ```bash
 $ bin/rails generate model Comment commenter:string body:text article:references
@@ -1514,7 +1523,7 @@ This command will generate four files:
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | db/migrate/20140120201010_create_comments.rb | Migration to create the comments table in your database (your name will include a different timestamp) |
 | app/models/comment.rb                        | The Comment model                                                                                      |
-| test/models/comment_test.rb                  | Testing harness for the comments model                                                                 |
+| test/models/comment_test.rb                  | Testing harness for the comment model                                                                 |
 | test/fixtures/comments.yml                   | Sample comments for use in testing                                                                     |
 
 First, take a look at `app/models/comment.rb`:
@@ -1538,20 +1547,17 @@ class CreateComments < ActiveRecord::Migration
     create_table :comments do |t|
       t.string :commenter
       t.text :body
-
-      # this line adds an integer column called `article_id`.
-      t.references :article, index: true
+      t.references :article, index: true, foreign_key: true
 
       t.timestamps null: false
     end
-    add_foreign_key :comments, :articles
   end
 end
 ```
 
-The `t.references` line sets up a foreign key column for the association between
-the two models. An index for this association is also created on this column.
-Go ahead and run the migration:
+The `t.references` line creates an integer column called `article_id`, an index
+for it, and a foreign key constraint that points to the `id` column of the `articles`
+table. Go ahead and run the migration:
 
 ```bash
 $ bin/rake db:migrate
@@ -1564,8 +1570,6 @@ run against the current database, so in this case you will just see:
 ==  CreateComments: migrating =================================================
 -- create_table(:comments)
    -> 0.0115s
--- add_foreign_key(:comments, :articles)
-   -> 0.0000s
 ==  CreateComments: migrated (0.0119s) ========================================
 ```
 
@@ -1681,8 +1685,8 @@ So first, we'll wire up the Article show template
   </p>
 <% end %>
 
-<%= link_to 'Back', articles_path %> |
-<%= link_to 'Edit', edit_article_path(@article) %>
+<%= link_to 'Edit', edit_article_path(@article) %> |
+<%= link_to 'Back', articles_path %>
 ```
 
 This adds a form on the `Article` show page that creates a new comment by
@@ -1762,8 +1766,8 @@ add that to the `app/views/articles/show.html.erb`.
   </p>
 <% end %>
 
-<%= link_to 'Edit Article', edit_article_path(@article) %> |
-<%= link_to 'Back to Articles', articles_path %>
+<%= link_to 'Edit', edit_article_path(@article) %> |
+<%= link_to 'Back', articles_path %>
 ```
 
 Now you can add articles and comments to your blog and have them show up in the
@@ -1828,8 +1832,8 @@ following:
   </p>
 <% end %>
 
-<%= link_to 'Edit Article', edit_article_path(@article) %> |
-<%= link_to 'Back to Articles', articles_path %>
+<%= link_to 'Edit', edit_article_path(@article) %> |
+<%= link_to 'Back', articles_path %>
 ```
 
 This will now render the partial in `app/views/comments/_comment.html.erb` once
@@ -1878,8 +1882,8 @@ Then you make the `app/views/articles/show.html.erb` look like the following:
 <h2>Add a comment:</h2>
 <%= render 'comments/form' %>
 
-<%= link_to 'Edit Article', edit_article_path(@article) %> |
-<%= link_to 'Back to Articles', articles_path %>
+<%= link_to 'Edit', edit_article_path(@article) %> |
+<%= link_to 'Back', articles_path %>
 ```
 
 The second render just defines the partial template we want to render,
@@ -1995,7 +1999,7 @@ class ArticlesController < ApplicationController
     @articles = Article.all
   end
 
-  # snipped for brevity
+  # snippet for brevity
 ```
 
 We also want to allow only authenticated users to delete comments, so in the
@@ -2011,7 +2015,7 @@ class CommentsController < ApplicationController
     # ...
   end
 
-  # snipped for brevity
+  # snippet for brevity
 ```
 
 Now if you try to create a new article, you will be greeted with a basic HTTP
@@ -2048,19 +2052,6 @@ resources:
 * The [Ruby on Rails mailing list](http://groups.google.com/group/rubyonrails-talk)
 * The [#rubyonrails](irc://irc.freenode.net/#rubyonrails) channel on irc.freenode.net
 
-Rails also comes with built-in help that you can generate using the rake
-command-line utility:
-
-* Running `rake doc:guides` will put a full copy of the Rails Guides in the
-  `doc/guides` folder of your application. Open `doc/guides/index.html` in your
-  web browser to explore the Guides.
-* Running `rake doc:rails` will put a full copy of the API documentation for
-  Rails in the `doc/api` folder of your application. Open `doc/api/index.html`
-  in your web browser to explore the API documentation.
-
-TIP: To be able to generate the Rails Guides locally with the `doc:guides` rake
-task you need to install the Redcarpet and Nokogiri gems. Add it to your `Gemfile` and run
-`bundle install` and you're ready to go.
 
 Configuration Gotchas
 ---------------------

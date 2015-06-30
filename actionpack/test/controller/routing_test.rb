@@ -1,4 +1,3 @@
-# encoding: utf-8
 require 'abstract_unit'
 require 'controller/fake_controllers'
 require 'active_support/core_ext/object/with_options'
@@ -8,8 +7,6 @@ class MilestonesController < ActionController::Base
   def index() head :ok end
   alias_method :show, :index
 end
-
-ROUTING = ActionDispatch::Routing
 
 # See RFC 3986, section 3.3 for allowed path characters.
 class UriReservedCharactersRoutingTest < ActiveSupport::TestCase
@@ -872,7 +869,7 @@ class RouteSetTest < ActiveSupport::TestCase
 
   def default_route_set
     @default_route_set ||= begin
-      set = ROUTING::RouteSet.new
+      set = ActionDispatch::Routing::RouteSet.new
       set.draw do
         get '/:controller(/:action(/:id))'
       end
@@ -1749,13 +1746,13 @@ class RouteSetTest < ActiveSupport::TestCase
 
   include ActionDispatch::RoutingVerbs
 
-  class TestSet < ROUTING::RouteSet
+  class TestSet < ActionDispatch::Routing::RouteSet
     def initialize(block)
       @block = block
       super()
     end
 
-    class Dispatcher < ROUTING::RouteSet::Dispatcher
+    class Dispatcher < ActionDispatch::Routing::RouteSet::Dispatcher
       def initialize(defaults, set, block)
         super(defaults)
         @block = block

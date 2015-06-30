@@ -68,8 +68,8 @@ module ActiveRecord
         five = columns.detect { |c| c.name == "five" } unless mysql
 
         assert_equal "hello", one.default
-        assert_equal true, two.type_cast_from_database(two.default)
-        assert_equal false, three.type_cast_from_database(three.default)
+        assert_equal true, connection.lookup_cast_type_from_column(two).deserialize(two.default)
+        assert_equal false, connection.lookup_cast_type_from_column(three).deserialize(three.default)
         assert_equal '1', four.default
         assert_equal "hello", five.default unless mysql
       end
@@ -105,7 +105,7 @@ module ActiveRecord
         eight   = columns.detect { |c| c.name == "eight_int"   }
 
         if current_adapter?(:OracleAdapter)
-          assert_equal 'NUMBER(8)', eight.sql_type
+          assert_equal 'NUMBER(19)', eight.sql_type
         elsif current_adapter?(:SQLite3Adapter)
           assert_equal 'bigint', eight.sql_type
         else
@@ -403,6 +403,17 @@ module ActiveRecord
         end
       end
 
+      def test_drop_table_if_exists
+        connection.create_table(:testings)
+        assert connection.table_exists?(:testings)
+        connection.drop_table(:testings, if_exists: true)
+        assert_not connection.table_exists?(:testings)
+      end
+
+      def test_drop_table_if_exists_nothing_raised
+        assert_nothing_raised { connection.drop_table(:nonexistent, if_exists: true) }
+      end
+
       private
       def testing_table_with_only_foo_attribute
         connection.create_table :testings, :id => false do |t|
@@ -415,7 +426,7 @@ module ActiveRecord
 
     if ActiveRecord::Base.connection.supports_foreign_keys?
       class ChangeSchemaWithDependentObjectsTest < ActiveRecord::TestCase
-        self.use_transactional_fixtures = false
+        self.use_transactional_tests = false
 
         setup do
           @connection = ActiveRecord::Base.connection
@@ -426,7 +437,7 @@ module ActiveRecord
 
         teardown do
           [:wagons, :trains].each do |table|
-            @connection.drop_table(table) if @connection.table_exists?(table)
+            @connection.drop_table table, if_exists: true
           end
         end
 

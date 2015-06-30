@@ -50,6 +50,33 @@ module ApplicationTests
       ], middleware
     end
 
+    test "api middleware stack" do
+      add_to_config "config.api_only = true"
+
+      boot!
+
+      assert_equal [
+        "Rack::Sendfile",
+        "ActionDispatch::Static",
+        "Rack::Lock",
+        "ActiveSupport::Cache::Strategy::LocalCache",
+        "Rack::Runtime",
+        "ActionDispatch::RequestId",
+        "Rails::Rack::Logger", # must come after Rack::MethodOverride to properly log overridden methods
+        "ActionDispatch::ShowExceptions",
+        "ActionDispatch::DebugExceptions",
+        "ActionDispatch::RemoteIp",
+        "ActionDispatch::Reloader",
+        "ActionDispatch::Callbacks",
+        "ActiveRecord::ConnectionAdapters::ConnectionManagement",
+        "ActiveRecord::QueryCache",
+        "ActionDispatch::ParamsParser",
+        "Rack::Head",
+        "Rack::ConditionalGet",
+        "Rack::ETag"
+      ], middleware
+    end
+
     test "Rack::Cache is not included by default" do
       boot!
 
@@ -123,6 +150,22 @@ module ApplicationTests
       add_to_config "config.middleware.delete ActionDispatch::Static"
       boot!
       assert !middleware.include?("ActionDispatch::Static")
+    end
+
+    test "can delete a middleware from the stack even if insert_before is added after delete" do
+      add_to_config "config.middleware.delete Rack::Runtime"
+      add_to_config "config.middleware.insert_before(Rack::Runtime, Rack::Config)"
+      boot!
+      assert middleware.include?("Rack::Config")
+      assert_not middleware.include?("Rack::Runtime")
+    end
+
+    test "can delete a middleware from the stack even if insert_after is added after delete" do
+      add_to_config "config.middleware.delete Rack::Runtime"
+      add_to_config "config.middleware.insert_after(Rack::Runtime, Rack::Config)"
+      boot!
+      assert middleware.include?("Rack::Config")
+      assert_not middleware.include?("Rack::Runtime")
     end
 
     test "includes exceptions middlewares even if action_dispatch.show_exceptions is disabled" do

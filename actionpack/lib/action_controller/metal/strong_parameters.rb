@@ -1,7 +1,6 @@
 require 'active_support/core_ext/hash/indifferent_access'
 require 'active_support/core_ext/array/wrap'
 require 'active_support/core_ext/string/filters'
-require 'active_support/deprecation'
 require 'active_support/rescuable'
 require 'action_dispatch/http/upload'
 require 'stringio'
@@ -12,9 +11,9 @@ module ActionController
   #
   #   params = ActionController::Parameters.new(a: {})
   #   params.fetch(:b)
-  #   # => ActionController::ParameterMissing: param not found: b
+  #   # => ActionController::ParameterMissing: param is missing or the value is empty: b
   #   params.require(:a)
-  #   # => ActionController::ParameterMissing: param not found: a
+  #   # => ActionController::ParameterMissing: param is missing or the value is empty: a
   class ParameterMissing < KeyError
     attr_reader :param # :nodoc:
 
@@ -24,11 +23,13 @@ module ActionController
     end
   end
 
-  # Raised when a supplied parameter is not expected.
+  # Raised when a supplied parameter is not expected and
+  # ActionController::Parameters.action_on_unpermitted_parameters
+  # is set to <tt>:raise</tt>.
   #
   #   params = ActionController::Parameters.new(a: "123", b: "456")
   #   params.permit(:c)
-  #   # => ActionController::UnpermittedParameters: found unexpected keys: a, b
+  #   # => ActionController::UnpermittedParameters: found unpermitted parameters: a, b
   class UnpermittedParameters < IndexError
     attr_reader :params # :nodoc:
 
@@ -118,7 +119,7 @@ module ActionController
     self.always_permitted_parameters = %w( controller action )
 
     def self.const_missing(const_name)
-      super unless const_name == :NEVER_UNPERMITTED_PARAMS
+      return super unless const_name == :NEVER_UNPERMITTED_PARAMS
       ActiveSupport::Deprecation.warn(<<-MSG.squish)
         `ActionController::Parameters::NEVER_UNPERMITTED_PARAMS` has been deprecated.
         Use `ActionController::Parameters.always_permitted_parameters` instead.
@@ -237,10 +238,10 @@ module ActionController
     #   # => {"name"=>"Francesco"}
     #
     #   ActionController::Parameters.new(person: nil).require(:person)
-    #   # => ActionController::ParameterMissing: param not found: person
+    #   # => ActionController::ParameterMissing: param is missing or the value is empty: person
     #
     #   ActionController::Parameters.new(person: {}).require(:person)
-    #   # => ActionController::ParameterMissing: param not found: person
+    #   # => ActionController::ParameterMissing: param is missing or the value is empty: person
     def require(key)
       value = self[key]
       if value.present? || value == false
@@ -269,7 +270,7 @@ module ActionController
     #
     #   params.permit(:name)
     #
-    # +:name+ passes it is a key of +params+ whose associated value is of type
+    # +:name+ passes if it is a key of +params+ whose associated value is of type
     # +String+, +Symbol+, +NilClass+, +Numeric+, +TrueClass+, +FalseClass+,
     # +Date+, +Time+, +DateTime+, +StringIO+, +IO+,
     # +ActionDispatch::Http::UploadedFile+ or +Rack::Test::UploadedFile+.
@@ -357,7 +358,7 @@ module ActionController
     #
     #   params = ActionController::Parameters.new(person: { name: 'Francesco' })
     #   params.fetch(:person)               # => {"name"=>"Francesco"}
-    #   params.fetch(:none)                 # => ActionController::ParameterMissing: param not found: none
+    #   params.fetch(:none)                 # => ActionController::ParameterMissing: param is missing or the value is empty: none
     #   params.fetch(:none, 'Francesco')    # => "Francesco"
     #   params.fetch(:none) { 'Francesco' } # => "Francesco"
     def fetch(key, *args)

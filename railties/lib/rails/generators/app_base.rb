@@ -69,8 +69,8 @@ module Rails
         class_option :skip_turbolinks,    type: :boolean, default: false,
                                           desc: 'Skip turbolinks gem'
 
-        class_option :skip_test_unit,     type: :boolean, aliases: '-T', default: false,
-                                          desc: 'Skip Test::Unit files'
+        class_option :skip_test,          type: :boolean, aliases: '-T', default: false,
+                                          desc: 'Skip test files'
 
         class_option :rc,                 type: :string, default: false,
                                           desc: "Path to file containing extra configuration options for rails command"
@@ -113,7 +113,6 @@ module Rails
          assets_gemfile_entry,
          javascript_gemfile_entry,
          jbuilder_gemfile_entry,
-         sdoc_gemfile_entry,
          psych_gemfile_entry,
          @extra_entries].flatten.find_all(&@gem_filter)
       end
@@ -127,7 +126,7 @@ module Rails
       def builder
         @builder ||= begin
           builder_class = get_builder_class
-          builder_class.send(:include, ActionMethods)
+          builder_class.include(ActionMethods)
           builder_class.new(self)
         end
       end
@@ -168,11 +167,15 @@ module Rails
       end
 
       def include_all_railties?
-        options.values_at(:skip_active_record, :skip_action_mailer, :skip_test_unit, :skip_sprockets).none?
+        options.values_at(:skip_active_record, :skip_action_mailer, :skip_test, :skip_sprockets).none?
       end
 
       def comment_if(value)
         options[value] ? '# ' : ''
+      end
+
+      def keeps?
+        !options[:skip_keeps]
       end
 
       def sqlite3?
@@ -205,11 +208,13 @@ module Rails
         if options.dev?
           [
             GemfileEntry.path('rails', Rails::Generators::RAILS_DEV_PATH),
+            GemfileEntry.github('sprockets-rails', 'rails/sprockets-rails'),
             GemfileEntry.github('arel', 'rails/arel')
           ]
         elsif options.edge?
           [
             GemfileEntry.github('rails', 'rails/rails'),
+            GemfileEntry.github('sprockets-rails', 'rails/sprockets-rails'),
             GemfileEntry.github('arel', 'rails/arel')
           ]
         else
@@ -261,13 +266,10 @@ module Rails
       end
 
       def jbuilder_gemfile_entry
+        return [] if options[:api]
+
         comment = 'Build JSON APIs with ease. Read more: https://github.com/rails/jbuilder'
         GemfileEntry.version('jbuilder', '~> 2.0', comment)
-      end
-
-      def sdoc_gemfile_entry
-        comment = 'bundle exec rake doc:rails generates the API under doc/api.'
-        GemfileEntry.new('sdoc', '~> 0.4.0', comment, group: :doc)
       end
 
       def coffee_gemfile_entry
@@ -297,7 +299,7 @@ module Rails
       end
 
       def javascript_runtime_gemfile_entry
-        comment = 'See https://github.com/sstephenson/execjs#readme for more supported runtimes'
+        comment = 'See https://github.com/rails/execjs#readme for more supported runtimes'
         if defined?(JRUBY_VERSION)
           GemfileEntry.version 'therubyrhino', nil, comment
         else
@@ -321,10 +323,6 @@ module Rails
         # its own vendored Thor, which could be a different version. Running both
         # things in the same process is a recipe for a night with paracetamol.
         #
-        # We use backticks and #print here instead of vanilla #system because it
-        # is easier to silence stdout in the existing test suite this way. The
-        # end-user gets the bundler commands called anyway, so no big deal.
-        #
         # We unset temporary bundler variables to load proper bundler and Gemfile.
         #
         # Thanks to James Tucker for the Gem tricks involved in this call.
@@ -332,8 +330,12 @@ module Rails
 
         require 'bundler'
         Bundler.with_clean_env do
-          output = `"#{Gem.ruby}" "#{_bundle_command}" #{command}`
-          print output unless options[:quiet]
+          full_command = %Q["#{Gem.ruby}" "#{_bundle_command}" #{command}]
+          if options[:quiet]
+            system(full_command, out: File::NULL)
+          else
+            system(full_command)
+          end
         end
       end
 
@@ -342,7 +344,7 @@ module Rails
       end
 
       def spring_install?
-        !options[:skip_spring] && Process.respond_to?(:fork) && !RUBY_PLATFORM.include?("cygwin")
+        !options[:skip_spring] && !options.dev? && Process.respond_to?(:fork) && !RUBY_PLATFORM.include?("cygwin")
       end
 
       def run_bundle
@@ -361,7 +363,7 @@ module Rails
       end
 
       def keep_file(destination)
-        create_file("#{destination}/.keep") unless options[:skip_keeps]
+        create_file("#{destination}/.keep") if keeps?
       end
     end
   end

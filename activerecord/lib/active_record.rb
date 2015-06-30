@@ -43,15 +43,18 @@ module ActiveRecord
   autoload :Explain
   autoload :Inheritance
   autoload :Integration
+  autoload :LegacyYamlAdapter
   autoload :Migration
   autoload :Migrator, 'active_record/migration'
   autoload :ModelSchema
   autoload :NestedAttributes
   autoload :NoTouching
+  autoload :TouchLater
   autoload :Persistence
   autoload :QueryCache
   autoload :Querying
   autoload :ReadonlyAttributes
+  autoload :RecordInvalid, 'active_record/validations'
   autoload :Reflection
   autoload :RuntimeRegistry
   autoload :Sanitization
@@ -62,6 +65,7 @@ module ActiveRecord
   autoload :Serialization
   autoload :StatementCache
   autoload :Store
+  autoload :Suppressor
   autoload :TableMetadata
   autoload :Timestamp
   autoload :Transactions

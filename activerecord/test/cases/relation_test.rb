@@ -156,16 +156,32 @@ module ActiveRecord
       relation = Relation.new(FakeKlass, :b, nil)
       relation = relation.merge where: :lol, readonly: true
 
-      assert_equal [:lol], relation.where_values
+      assert_equal Relation::WhereClause.new([:lol], []), relation.where_clause
       assert_equal true, relation.readonly_value
     end
 
     test 'merging an empty hash into a relation' do
-      assert_equal [], Relation.new(FakeKlass, :b, nil).merge({}).where_values
+      assert_equal Relation::WhereClause.empty, Relation.new(FakeKlass, :b, nil).merge({}).where_clause
     end
 
     test 'merging a hash with unknown keys raises' do
       assert_raises(ArgumentError) { Relation::HashMerger.new(nil, omg: 'lol') }
+    end
+
+    test 'merging nil or false raises' do
+      relation = Relation.new(FakeKlass, :b, nil)
+
+      e = assert_raises(ArgumentError) do
+        relation = relation.merge nil
+      end
+
+      assert_equal 'invalid argument: nil.', e.message
+
+      e = assert_raises(ArgumentError) do
+        relation = relation.merge false
+      end
+
+      assert_equal 'invalid argument: false.', e.message
     end
 
     test '#values returns a dup of the values' do
@@ -173,18 +189,12 @@ module ActiveRecord
       values   = relation.values
 
       values[:where] = nil
-      assert_not_nil relation.where_values
+      assert_not_nil relation.where_clause
     end
 
     test 'relations can be created with a values hash' do
-      relation = Relation.new(FakeKlass, :b, nil, where: [:foo])
-      assert_equal [:foo], relation.where_values
-    end
-
-    test 'merging a single where value' do
-      relation = Relation.new(FakeKlass, :b, nil)
-      relation.merge!(where: :foo)
-      assert_equal [:foo], relation.where_values
+      relation = Relation.new(FakeKlass, :b, nil, select: [:foo])
+      assert_equal [:foo], relation.select_values
     end
 
     test 'merging a hash interpolates conditions' do
@@ -197,7 +207,7 @@ module ActiveRecord
 
       relation = Relation.new(klass, :b, nil)
       relation.merge!(where: ['foo = ?', 'bar'])
-      assert_equal ['foo = bar'], relation.where_values
+      assert_equal Relation::WhereClause.new(['foo = bar'], []), relation.where_clause
     end
 
     def test_merging_readonly_false
@@ -232,6 +242,19 @@ module ActiveRecord
       assert_equal false, post.respond_to?(:title), "post should not respond_to?(:body) since invoking it raises exception"
     end
 
+    def test_select_quotes_when_using_from_clause
+      if sqlite3_version_includes_quoting_bug?
+        skip <<-ERROR.squish
+          You are using an outdated version of SQLite3 which has a bug in
+          quoted column names. Please update SQLite3 and rebuild the sqlite3
+          ruby gem
+        ERROR
+      end
+      quoted_join = ActiveRecord::Base.connection.quote_table_name("join")
+      selected = Post.select(:join).from(Post.select("id as #{quoted_join}")).map(&:join)
+      assert_equal Post.pluck(:id), selected
+    end
+
     def test_relation_merging_with_merged_joins_as_strings
       join_string = "LEFT OUTER JOIN #{Rating.quoted_table_name} ON #{SpecialComment.quoted_table_name}.id = #{Rating.quoted_table_name}.comment_id"
       special_comments_with_ratings = SpecialComment.joins join_string
@@ -244,12 +267,12 @@ module ActiveRecord
         :string
       end
 
-      def type_cast_from_database(value)
+      def deserialize(value)
         raise value unless value == "type cast for database"
         "type cast from database"
       end
 
-      def type_cast_for_database(value)
+      def serialize(value)
         raise value unless value == "value from user"
         "type cast for database"
       end
@@ -265,6 +288,17 @@ module ActiveRecord
       UpdateAllTestModel.update_all(body: "value from user", type: nil) # No STI
 
       assert_equal "type cast from database", UpdateAllTestModel.first.body
+    end
+
+    private
+
+    def sqlite3_version_includes_quoting_bug?
+      if current_adapter?(:SQLite3Adapter)
+        selected_quoted_column_names = ActiveRecord::Base.connection.exec_query(
+          'SELECT "join" FROM (SELECT id AS "join" FROM posts) subquery'
+        ).columns
+        ["join"] != selected_quoted_column_names
+      end
     end
   end
 end

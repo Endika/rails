@@ -30,6 +30,9 @@ ARTest.connect
 # Quote "type" if it's a reserved word for the current connection.
 QUOTED_TYPE = ActiveRecord::Base.connection.quote_column_name('type')
 
+# FIXME: Remove this when the deprecation cycle on TZ aware types by default ends.
+ActiveRecord::Base.time_zone_aware_types << :time
+
 def current_adapter?(*types)
   types.any? do |type|
     ActiveRecord::ConnectionAdapters.const_defined?(type) &&
@@ -43,7 +46,7 @@ def in_memory_db?
 end
 
 def mysql_56?
-  current_adapter?(:Mysql2Adapter) &&
+  current_adapter?(:MysqlAdapter, :Mysql2Adapter) &&
     ActiveRecord::Base.connection.send(:version).join(".") >= "5.6.0"
 end
 
@@ -121,7 +124,7 @@ def enable_extension!(extension, connection)
   return connection.reconnect! if connection.extension_enabled?(extension)
 
   connection.enable_extension extension
-  connection.commit_db_transaction
+  connection.commit_db_transaction if connection.transaction_open?
   connection.reconnect!
 end
 
@@ -140,7 +143,7 @@ class ActiveSupport::TestCase
 
   self.fixture_path = FIXTURES_ROOT
   self.use_instantiated_fixtures  = false
-  self.use_transactional_fixtures = true
+  self.use_transactional_tests = true
 
   def create_fixtures(*fixture_set_names, &block)
     ActiveRecord::FixtureSet.create_fixtures(ActiveSupport::TestCase.fixture_path, fixture_set_names, fixture_class_names, &block)
@@ -200,8 +203,3 @@ module InTimeZone
 end
 
 require 'mocha/setup' # FIXME: stop using mocha
-
-# FIXME: we have tests that depend on run order, we should fix that and
-# remove this method call.
-require 'active_support/test_case'
-ActiveSupport::TestCase.test_order = :sorted

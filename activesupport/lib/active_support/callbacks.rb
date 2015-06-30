@@ -5,6 +5,7 @@ require 'active_support/core_ext/class/attribute'
 require 'active_support/core_ext/kernel/reporting'
 require 'active_support/core_ext/kernel/singleton_class'
 require 'active_support/core_ext/string/filters'
+require 'active_support/deprecation'
 require 'thread'
 
 module ActiveSupport
@@ -79,20 +80,18 @@ module ActiveSupport
     #     save
     #   end
     def run_callbacks(kind, &block)
-      send "_run_#{kind}_callbacks", &block
-    end
+      callbacks = send("_#{kind}_callbacks")
 
-    private
-
-    def _run_callbacks(callbacks, &block)
       if callbacks.empty?
-        block.call if block
+        yield if block_given?
       else
         runner = callbacks.compile
         e = Filters::Environment.new(self, false, nil, block)
         runner.call(e).value
       end
     end
+
+    private
 
     # A hook invoked every time a before callback is halted.
     # This can be overridden in AS::Callback implementors in order
@@ -291,13 +290,11 @@ module ActiveSupport
 
             if !halted && user_conditions.all? { |c| c.call(target, value) }
               user_callback.call(target, value) {
-                env = run.call env
-                env.value
+                run.call.value
               }
-
               env
             else
-              run.call env
+              run.call
             end
           end
         end
@@ -309,11 +306,10 @@ module ActiveSupport
             value  = env.value
 
             if env.halted
-              run.call env
+              run.call
             else
               user_callback.call(target, value) {
-                env = run.call env
-                env.value
+                run.call.value
               }
               env
             end
@@ -328,12 +324,11 @@ module ActiveSupport
 
             if user_conditions.all? { |c| c.call(target, value) }
               user_callback.call(target, value) {
-                env = run.call env
-                env.value
+                run.call.value
               }
               env
             else
-              run.call env
+              run.call
             end
           end
         end
@@ -342,8 +337,7 @@ module ActiveSupport
         def self.simple(callback_sequence, user_callback)
           callback_sequence.around do |env, &run|
             user_callback.call(env.target, env.value) {
-              env = run.call env
-              env.value
+              run.call.value
             }
             env
           end
@@ -373,14 +367,14 @@ module ActiveSupport
       def filter; @key; end
       def raw_filter; @filter; end
 
-      def merge(chain, new_options)
+      def merge_conditional_options(chain, if_option:, unless_option:)
         options = {
           :if     => @if.dup,
           :unless => @unless.dup
         }
 
-        options[:if].concat     Array(new_options.fetch(:unless, []))
-        options[:unless].concat Array(new_options.fetch(:if, []))
+        options[:if].concat     Array(unless_option)
+        options[:unless].concat Array(if_option)
 
         self.class.build chain, @filter, @kind, options
       end
@@ -495,17 +489,17 @@ module ActiveSupport
       end
 
       def around(&around)
-        CallbackSequence.new do |*args|
-          around.call(*args) {
-            self.call(*args)
+        CallbackSequence.new do |arg|
+          around.call(arg) {
+            self.call(arg)
           }
         end
       end
 
-      def call(*args)
-        @before.each { |b| b.call(*args) }
-        value = @call.call(*args)
-        @after.each { |a| a.call(*args) }
+      def call(arg)
+        @before.each { |b| b.call(arg) }
+        value = @call.call(arg)
+        @after.each { |a| a.call(arg) }
         value
       end
     end
@@ -644,7 +638,7 @@ module ActiveSupport
       #   set_callback :save, :after,  :after_meth, if: :condition
       #   set_callback :save, :around, ->(r, block) { stuff; result = block.call; stuff }
       #
-      # The second arguments indicates whether the callback is to be run +:before+,
+      # The second argument indicates whether the callback is to be run +:before+,
       # +:after+, or +:around+ the event. If omitted, +:before+ is assumed. This
       # means the first example above can also be written as:
       #
@@ -667,10 +661,12 @@ module ActiveSupport
       #
       # ===== Options
       #
-      # * <tt>:if</tt> - A symbol naming an instance method or a proc; the
-      #   callback will be called only when it returns a +true+ value.
-      # * <tt>:unless</tt> - A symbol naming an instance method or a proc; the
-      #   callback will be called only when it returns a +false+ value.
+      # * <tt>:if</tt> - A symbol, a string or an array of symbols and strings,
+      #   each naming an instance method or a proc; the callback will be called
+      #   only when they all return a true value.
+      # * <tt>:unless</tt> - A symbol, a string or an array of symbols and
+      #   strings, each naming an instance method or a proc; the callback will
+      #   be called only when they all return a false value.
       # * <tt>:prepend</tt> - If +true+, the callback will be prepended to the
       #   existing chain rather than appended.
       def set_callback(name, *filter_list, &block)
@@ -693,19 +689,27 @@ module ActiveSupport
       #   class Writer < Person
       #      skip_callback :validate, :before, :check_membership, if: -> { self.age > 18 }
       #   end
+      #
+      # An <tt>ArgumentError</tt> will be raised if the callback has not
+      # already been set (unless the <tt>:raise</tt> option is set to <tt>false</tt>).
       def skip_callback(name, *filter_list, &block)
         type, filters, options = normalize_callback_params(filter_list, block)
+        options[:raise] = true unless options.key?(:raise)
 
         __update_callbacks(name) do |target, chain|
           filters.each do |filter|
-            filter = chain.find {|c| c.matches?(type, filter) }
+            callback = chain.find {|c| c.matches?(type, filter) }
 
-            if filter && options.any?
-              new_filter = filter.merge(chain, options)
-              chain.insert(chain.index(filter), new_filter)
+            if !callback && options[:raise]
+              raise ArgumentError, "#{type.to_s.capitalize} #{name} callback #{filter.inspect} has not been defined"
             end
 
-            chain.delete(filter)
+            if callback && (options.key?(:if) || options.key?(:unless))
+              new_callback = callback.merge_conditional_options(chain, if_option: options[:if], unless_option: options[:unless])
+              chain.insert(chain.index(callback), new_callback)
+            end
+
+            chain.delete(callback)
           end
           target.set_callbacks name, chain
         end
@@ -746,8 +750,8 @@ module ActiveSupport
       #
       # * <tt>:skip_after_callbacks_if_terminated</tt> - Determines if after
       #   callbacks should be terminated by the <tt>:terminator</tt> option. By
-      #   default after callbacks executed no matter if callback chain was
-      #   terminated or not. Option makes sense only when <tt>:terminator</tt>
+      #   default after callbacks are executed no matter if callback chain was
+      #   terminated or not. This option makes sense only when <tt>:terminator</tt>
       #   option is specified.
       #
       # * <tt>:scope</tt> - Indicates which methods should be executed when an
@@ -802,12 +806,6 @@ module ActiveSupport
         names.each do |name|
           class_attribute "_#{name}_callbacks"
           set_callbacks name, CallbackChain.new(name, options)
-
-          module_eval <<-RUBY, __FILE__, __LINE__ + 1
-            def _run_#{name}_callbacks(&block)
-              _run_callbacks(_#{name}_callbacks, &block)
-            end
-          RUBY
         end
       end
 

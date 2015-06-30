@@ -23,6 +23,7 @@ require 'models/chef'
 require 'models/department'
 require 'models/cake_designer'
 require 'models/drink_designer'
+require 'models/recipe'
 
 class ReflectionTest < ActiveRecord::TestCase
   include ActiveRecord::Reflection
@@ -86,18 +87,15 @@ class ReflectionTest < ActiveRecord::TestCase
     assert_equal "attribute_that_doesnt_exist", column.name
     assert_equal nil, column.sql_type
     assert_equal nil, column.type
-    assert_not column.number?
-    assert_not column.text?
-    assert_not column.binary?
   end
 
-  def test_non_existent_columns_are_identity_types
-    column = @first.column_for_attribute("attribute_that_doesnt_exist")
+  def test_non_existent_types_are_identity_types
+    type = @first.type_for_attribute("attribute_that_doesnt_exist")
     object = Object.new
 
-    assert_equal object, column.type_cast_from_database(object)
-    assert_equal object, column.type_cast_from_user(object)
-    assert_equal object, column.type_cast_for_database(object)
+    assert_equal object, type.deserialize(object)
+    assert_equal object, type.cast(object)
+    assert_equal object, type.serialize(object)
   end
 
   def test_reflection_klass_for_nested_class_name
@@ -278,6 +276,22 @@ class ReflectionTest < ActiveRecord::TestCase
     assert_equal 1, @hotel.cake_designers.size
     assert_equal 1, @hotel.drink_designers.size
     assert_equal 2, @hotel.chefs.size
+  end
+
+  def test_scope_chain_of_polymorphic_association_does_not_leak_into_other_hmt_associations
+    hotel = Hotel.create!
+    department = hotel.departments.create!
+    drink = department.chefs.create!(employable: DrinkDesigner.create!)
+    Recipe.create!(chef_id: drink.id, hotel_id: hotel.id)
+
+    expected_sql = capture_sql { hotel.recipes.to_a }
+
+    Hotel.reflect_on_association(:recipes).clear_association_scope_cache
+    hotel.reload
+    hotel.drink_designers.to_a
+    loaded_sql = capture_sql { hotel.recipes.to_a }
+
+    assert_equal expected_sql, loaded_sql
   end
 
   def test_nested?

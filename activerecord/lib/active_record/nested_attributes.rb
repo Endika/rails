@@ -147,8 +147,8 @@ module ActiveRecord
     #     has_many :posts
     #     accepts_nested_attributes_for :posts, reject_if: :reject_posts
     #
-    #     def reject_posts(attributed)
-    #       attributed['title'].blank?
+    #     def reject_posts(attributes)
+    #       attributes['title'].blank?
     #     end
     #   end
     #
@@ -165,6 +165,11 @@ module ActiveRecord
     #
     #   member.posts.first.title # => '[UPDATED] An, as of yet, undisclosed awesome Ruby documentation browser!'
     #   member.posts.second.title # => '[UPDATED] other post'
+    #
+    # However, the above applies if the parent model is being updated as well.
+    # For example, If you wanted to create a +member+ named _joe_ and wanted to
+    # update the +posts+ at the same time, that would give an
+    # ActiveRecord::RecordNotFound error.
     #
     # By default the associated records are protected from being destroyed. If
     # you want to destroy any of the associated records through the attributes
@@ -208,7 +213,7 @@ module ActiveRecord
     #
     # Passing attributes for an associated collection in the form of a hash
     # of hashes can be used with hashes generated from HTTP/HTML parameters,
-    # where there maybe no natural way to submit an array of hashes.
+    # where there may be no natural way to submit an array of hashes.
     #
     # === Saving
     #
@@ -312,7 +317,7 @@ module ActiveRecord
         attr_names.each do |association_name|
           if reflection = _reflect_on_association(association_name)
             reflection.autosave = true
-            add_autosave_association_callbacks(reflection)
+            define_autosave_validation_callbacks(reflection)
 
             nested_attributes_options = self.nested_attributes_options.dup
             nested_attributes_options[association_name.to_sym] = options
@@ -521,7 +526,7 @@ module ActiveRecord
 
     # Determines if a hash contains a truthy _destroy key.
     def has_destroy_flag?(hash)
-      Type::Boolean.new.type_cast_from_user(hash['_destroy'])
+      Type::Boolean.new.cast(hash['_destroy'])
     end
 
     # Determines if a new record should be rejected by checking

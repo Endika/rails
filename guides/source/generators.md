@@ -1,4 +1,4 @@
-**DO NOT READ THIS FILE IN GITHUB, GUIDES ARE PUBLISHED IN http://guides.rubyonrails.org.**
+**DO NOT READ THIS FILE ON GITHUB, GUIDES ARE PUBLISHED ON http://guides.rubyonrails.org.**
 
 Creating and Customizing Rails Generators & Templates
 =====================================================
@@ -501,6 +501,14 @@ Adds a specified source to `Gemfile`:
 
 ```ruby
 add_source "http://gems.github.com"
+```
+
+This method also takes a block:
+
+```ruby
+add_source "http://gems.github.com" do
+  gem "rspec-rails"
+end
 ```
 
 ### `inject_into_file`

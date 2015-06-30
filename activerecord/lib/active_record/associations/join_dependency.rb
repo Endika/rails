@@ -232,23 +232,26 @@ module ActiveRecord
       end
 
       def construct(ar_parent, parent, row, rs, seen, model_cache, aliases)
+        return if ar_parent.nil?
         primary_id  = ar_parent.id
 
         parent.children.each do |node|
           if node.reflection.collection?
             other = ar_parent.association(node.reflection.name)
             other.loaded!
-          else
-            if ar_parent.association_cache.key?(node.reflection.name)
-              model = ar_parent.association(node.reflection.name).target
-              construct(model, node, row, rs, seen, model_cache, aliases)
-              next
-            end
+          elsif ar_parent.association_cached?(node.reflection.name)
+            model = ar_parent.association(node.reflection.name).target
+            construct(model, node, row, rs, seen, model_cache, aliases)
+            next
           end
 
           key = aliases.column_alias(node, node.primary_key)
           id = row[key]
-          next if id.nil?
+          if id.nil?
+            nil_association = ar_parent.association(node.reflection.name)
+            nil_association.loaded!
+            next
+          end
 
           model = seen[parent.base_klass][primary_id][node.base_klass][id]
 

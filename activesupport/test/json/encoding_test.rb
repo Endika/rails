@@ -1,4 +1,3 @@
-# encoding: utf-8
 require 'securerandom'
 require 'abstract_unit'
 require 'active_support/core_ext/string/inflections'
@@ -131,6 +130,8 @@ class TestJSONEncoding < ActiveSupport::TestCase
   end
 
   def test_process_status
+    rubinius_skip "https://github.com/rubinius/rubinius/issues/3334"
+
     # There doesn't seem to be a good way to get a handle on a Process::Status object without actually
     # creating a child process, hence this to populate $?
     system("not_a_real_program_#{SecureRandom.hex}")
@@ -144,6 +145,13 @@ class TestJSONEncoding < ActiveSupport::TestCase
     assert_equal %({"1":2}), ActiveSupport::JSON.encode(1 => 2)
 
     assert_equal %({\"a\":\"b\",\"c\":\"d\"}), sorted_json(ActiveSupport::JSON.encode(:a => :b, :c => :d))
+  end
+
+  def test_hash_keys_encoding
+    ActiveSupport.escape_html_entities_in_json = true
+    assert_equal "{\"\\u003c\\u003e\":\"\\u003c\\u003e\"}", ActiveSupport::JSON.encode("<>" => "<>")
+  ensure
+    ActiveSupport.escape_html_entities_in_json = false
   end
 
   def test_utf8_string_encoded_properly

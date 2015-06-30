@@ -79,6 +79,9 @@ module ActionDispatch
   #     domain: %w(.example.com .example.org) # Allow the cookie
   #                                           # for concrete domain names.
   #
+  # * <tt>:tld_length</tt> - When using <tt>:domain => :all</tt>, this option can be used to explicitly
+  #   set the TLD length when using a short (<= 3 character) domain that is being interpreted as part of a TLD.
+  #   For example, to share cookies between user1.lvh.me and user2.lvh.me, set <tt>:tld_length</tt> to 1.
   # * <tt>:expires</tt> - The time at which this cookie expires, as a \Time object.
   # * <tt>:secure</tt> - Whether this cookie is only transmitted to HTTPS servers.
   #   Default is +false+.
@@ -181,7 +184,7 @@ module ActionDispatch
     # to the Message{Encryptor,Verifier} allows us to handle the
     # (de)serialization step within the cookie jar, which gives us the
     # opportunity to detect and migrate legacy cookies.
-    module VerifyAndUpgradeLegacySignedMessage
+    module VerifyAndUpgradeLegacySignedMessage # :nodoc:
       def initialize(*args)
         super
         @legacy_verifier = ActiveSupport::MessageVerifier.new(@options[:secret_token], serializer: ActiveSupport::MessageEncryptor::NullSerializer)
@@ -392,7 +395,7 @@ module ActionDispatch
       end
     end
 
-    class JsonSerializer
+    class JsonSerializer # :nodoc:
       def self.load(value)
         ActiveSupport::JSON.decode(value)
       end
@@ -402,7 +405,7 @@ module ActionDispatch
       end
     end
 
-    module SerializedCookieJars
+    module SerializedCookieJars # :nodoc:
       MARSHAL_SIGNATURE = "\x04\x08".freeze
 
       protected
@@ -454,12 +457,16 @@ module ActionDispatch
         @verifier = ActiveSupport::MessageVerifier.new(secret, digest: digest, serializer: ActiveSupport::MessageEncryptor::NullSerializer)
       end
 
+      # Returns the value of the cookie by +name+ if it is untampered,
+      # returns +nil+ otherwise or if no such cookie exists.
       def [](name)
         if signed_message = @parent_jar[name]
           deserialize name, verify(signed_message)
         end
       end
 
+      # Signs and sets the cookie named +name+. The second argument may be the cookie's
+      # value or a hash of options as documented above.
       def []=(name, options)
         if options.is_a?(Hash)
           options.symbolize_keys!
@@ -482,8 +489,8 @@ module ActionDispatch
 
     # UpgradeLegacySignedCookieJar is used instead of SignedCookieJar if
     # secrets.secret_token and secrets.secret_key_base are both set. It reads
-    # legacy cookies signed with the old dummy key generator and re-saves
-    # them using the new key generator to provide a smooth upgrade path.
+    # legacy cookies signed with the old dummy key generator and signs and
+    # re-saves them using the new key generator to provide a smooth upgrade path.
     class UpgradeLegacySignedCookieJar < SignedCookieJar #:nodoc:
       include VerifyAndUpgradeLegacySignedMessage
 
@@ -511,12 +518,16 @@ module ActionDispatch
         @encryptor = ActiveSupport::MessageEncryptor.new(secret, sign_secret, digest: digest, serializer: ActiveSupport::MessageEncryptor::NullSerializer)
       end
 
+      # Returns the value of the cookie by +name+ if it is untampered,
+      # returns +nil+ otherwise or if no such cookie exists.
       def [](name)
         if encrypted_message = @parent_jar[name]
           deserialize name, decrypt_and_verify(encrypted_message)
         end
       end
 
+      # Encrypts and sets the cookie named +name+. The second argument may be the cookie's
+      # value or a hash of options as documented above.
       def []=(name, options)
         if options.is_a?(Hash)
           options.symbolize_keys!

@@ -288,7 +288,12 @@ class CallbacksTest < ActiveRecord::TestCase
       [ :after_save,                  :string ],
       [ :after_save,                  :proc   ],
       [ :after_save,                  :object ],
-      [ :after_save,                  :block  ]
+      [ :after_save,                  :block  ],
+      [ :after_commit,                :block  ],
+      [ :after_commit,                :object ],
+      [ :after_commit,                :proc   ],
+      [ :after_commit,                :string ],
+      [ :after_commit,                :method ]
     ], david.history
   end
 
@@ -357,7 +362,12 @@ class CallbacksTest < ActiveRecord::TestCase
       [ :after_save,                  :string ],
       [ :after_save,                  :proc   ],
       [ :after_save,                  :object ],
-      [ :after_save,                  :block  ]
+      [ :after_save,                  :block  ],
+      [ :after_commit,                :block  ],
+      [ :after_commit,                :object ],
+      [ :after_commit,                :proc   ],
+      [ :after_commit,                :string ],
+      [ :after_commit,                :method ]
     ], david.history
   end
 
@@ -408,7 +418,12 @@ class CallbacksTest < ActiveRecord::TestCase
       [ :after_destroy,               :string ],
       [ :after_destroy,               :proc   ],
       [ :after_destroy,               :object ],
-      [ :after_destroy,               :block  ]
+      [ :after_destroy,               :block  ],
+      [ :after_commit,                :block  ],
+      [ :after_commit,                :object ],
+      [ :after_commit,                :proc   ],
+      [ :after_commit,                :string ],
+      [ :after_commit,                :method ]
     ], david.history
   end
 
@@ -436,6 +451,7 @@ class CallbacksTest < ActiveRecord::TestCase
       assert !david.save
       exc = assert_raise(ActiveRecord::RecordNotSaved) { david.save! }
       assert_equal exc.record, david
+      assert_equal "Failed to save the record", exc.message
     end
 
     david = ImmutableDeveloper.find(1)
@@ -479,6 +495,7 @@ class CallbacksTest < ActiveRecord::TestCase
       assert !david.destroy
       exc = assert_raise(ActiveRecord::RecordNotDestroyed) { david.destroy! }
       assert_equal exc.record, david
+      assert_equal "Failed to destroy the record", exc.message
     end
     assert_not_nil ImmutableDeveloper.find_by_id(1)
 

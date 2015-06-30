@@ -3,7 +3,7 @@ require 'support/schema_dumping_helper'
 
 class SchemaDumperTest < ActiveRecord::TestCase
   include SchemaDumpingHelper
-  self.use_transactional_fixtures = false
+  self.use_transactional_tests = false
 
   setup do
     ActiveRecord::SchemaMigration.create_table
@@ -73,10 +73,10 @@ class SchemaDumperTest < ActiveRecord::TestCase
       next if column_set.empty?
 
       lengths = column_set.map do |column|
-        if match = column.match(/t\.(?:integer|decimal|float|datetime|timestamp|time|date|text|binary|string|boolean|uuid|point)\s+"/)
+        if match = column.match(/\bt\.\w+\s+"/)
           match[0].length
         end
-      end
+      end.compact
 
       assert_equal 1, lengths.uniq.length
     end
@@ -168,24 +168,24 @@ class SchemaDumperTest < ActiveRecord::TestCase
   end
 
   def test_schema_dumps_index_columns_in_right_order
-    index_definition = standard_dump.split(/\n/).grep(/add_index.*companies/).first.strip
+    index_definition = standard_dump.split(/\n/).grep(/t\.index.*company_index/).first.strip
     if current_adapter?(:MysqlAdapter, :Mysql2Adapter, :PostgreSQLAdapter)
-      assert_equal 'add_index "companies", ["firm_id", "type", "rating"], name: "company_index", using: :btree', index_definition
+      assert_equal 't.index ["firm_id", "type", "rating"], name: "company_index", using: :btree', index_definition
     else
-      assert_equal 'add_index "companies", ["firm_id", "type", "rating"], name: "company_index"', index_definition
+      assert_equal 't.index ["firm_id", "type", "rating"], name: "company_index"', index_definition
     end
   end
 
   def test_schema_dumps_partial_indices
-    index_definition = standard_dump.split(/\n/).grep(/add_index.*company_partial_index/).first.strip
+    index_definition = standard_dump.split(/\n/).grep(/t\.index.*company_partial_index/).first.strip
     if current_adapter?(:PostgreSQLAdapter)
-      assert_equal 'add_index "companies", ["firm_id", "type"], name: "company_partial_index", where: "(rating > 10)", using: :btree', index_definition
+      assert_equal 't.index ["firm_id", "type"], name: "company_partial_index", where: "(rating > 10)", using: :btree', index_definition
     elsif current_adapter?(:MysqlAdapter, :Mysql2Adapter)
-      assert_equal 'add_index "companies", ["firm_id", "type"], name: "company_partial_index", using: :btree', index_definition
+      assert_equal 't.index ["firm_id", "type"], name: "company_partial_index", using: :btree', index_definition
     elsif current_adapter?(:SQLite3Adapter) && ActiveRecord::Base.connection.supports_partial_index?
-      assert_equal 'add_index "companies", ["firm_id", "type"], name: "company_partial_index", where: "rating > 10"', index_definition
+      assert_equal 't.index ["firm_id", "type"], name: "company_partial_index", where: "rating > 10"', index_definition
     else
-      assert_equal 'add_index "companies", ["firm_id", "type"], name: "company_partial_index"', index_definition
+      assert_equal 't.index ["firm_id", "type"], name: "company_partial_index"', index_definition
     end
   end
 
@@ -204,50 +204,58 @@ class SchemaDumperTest < ActiveRecord::TestCase
   if current_adapter?(:MysqlAdapter, :Mysql2Adapter)
     def test_schema_dump_should_add_default_value_for_mysql_text_field
       output = standard_dump
-      assert_match %r{t.text\s+"body",\s+limit: 65535,\s+null: false$}, output
+      assert_match %r{t\.text\s+"body",\s+limit: 65535,\s+null: false$}, output
     end
 
     def test_schema_dump_includes_length_for_mysql_binary_fields
       output = standard_dump
-      assert_match %r{t.binary\s+"var_binary",\s+limit: 255$}, output
-      assert_match %r{t.binary\s+"var_binary_large",\s+limit: 4095$}, output
+      assert_match %r{t\.binary\s+"var_binary",\s+limit: 255$}, output
+      assert_match %r{t\.binary\s+"var_binary_large",\s+limit: 4095$}, output
     end
 
     def test_schema_dump_includes_length_for_mysql_blob_and_text_fields
       output = standard_dump
-      assert_match %r{t.binary\s+"tiny_blob",\s+limit: 255$}, output
-      assert_match %r{t.binary\s+"normal_blob",\s+limit: 65535$}, output
-      assert_match %r{t.binary\s+"medium_blob",\s+limit: 16777215$}, output
-      assert_match %r{t.binary\s+"long_blob",\s+limit: 4294967295$}, output
-      assert_match %r{t.text\s+"tiny_text",\s+limit: 255$}, output
-      assert_match %r{t.text\s+"normal_text",\s+limit: 65535$}, output
-      assert_match %r{t.text\s+"medium_text",\s+limit: 16777215$}, output
-      assert_match %r{t.text\s+"long_text",\s+limit: 4294967295$}, output
+      assert_match %r{t\.binary\s+"tiny_blob",\s+limit: 255$}, output
+      assert_match %r{t\.binary\s+"normal_blob",\s+limit: 65535$}, output
+      assert_match %r{t\.binary\s+"medium_blob",\s+limit: 16777215$}, output
+      assert_match %r{t\.binary\s+"long_blob",\s+limit: 4294967295$}, output
+      assert_match %r{t\.text\s+"tiny_text",\s+limit: 255$}, output
+      assert_match %r{t\.text\s+"normal_text",\s+limit: 65535$}, output
+      assert_match %r{t\.text\s+"medium_text",\s+limit: 16777215$}, output
+      assert_match %r{t\.text\s+"long_text",\s+limit: 4294967295$}, output
+    end
+
+    def test_schema_does_not_include_limit_for_emulated_mysql_boolean_fields
+      output = standard_dump
+      assert_no_match %r{t\.boolean\s+"has_fun",.+limit: 1}, output
     end
 
     def test_schema_dumps_index_type
       output = standard_dump
-      assert_match %r{add_index "key_tests", \["awesome"\], name: "index_key_tests_on_awesome", type: :fulltext}, output
-      assert_match %r{add_index "key_tests", \["pizza"\], name: "index_key_tests_on_pizza", using: :btree}, output
-    end
-  end
-
-  if mysql_56?
-    def test_schema_dump_includes_datetime_precision
-      output = standard_dump
-      assert_match %r{t.datetime\s+"written_on",\s+precision: 6$}, output
+      assert_match %r{t\.index \["awesome"\], name: "index_key_tests_on_awesome", type: :fulltext}, output
+      assert_match %r{t\.index \["pizza"\], name: "index_key_tests_on_pizza", using: :btree}, output
     end
   end
 
   def test_schema_dump_includes_decimal_options
     output = dump_all_table_schema([/^[^n]/])
-    assert_match %r{precision: 3,[[:space:]]+scale: 2,[[:space:]]+default: 2.78}, output
+    assert_match %r{precision: 3,[[:space:]]+scale: 2,[[:space:]]+default: "2\.78"}, output
   end
 
   if current_adapter?(:PostgreSQLAdapter)
     def test_schema_dump_includes_bigint_default
       output = standard_dump
-      assert_match %r{t.integer\s+"bigint_default",\s+limit: 8,\s+default: 0}, output
+      assert_match %r{t\.integer\s+"bigint_default",\s+limit: 8,\s+default: 0}, output
+    end
+
+    def test_schema_dump_includes_limit_on_array_type
+      output = standard_dump
+      assert_match %r{t\.integer\s+"big_int_data_points\",\s+limit: 8,\s+array: true}, output
+    end
+
+    def test_schema_dump_allows_array_of_decimal_defaults
+      output = standard_dump
+      assert_match %r{t\.decimal\s+"decimal_array_default",\s+default: \["1.23", "3.45"\],\s+array: true}, output
     end
 
     if ActiveRecord::Base.connection.supports_extensions?
@@ -271,11 +279,11 @@ class SchemaDumperTest < ActiveRecord::TestCase
     output = standard_dump
     # Oracle supports precision up to 38 and it identifies decimals with scale 0 as integers
     if current_adapter?(:OracleAdapter)
-      assert_match %r{t.integer\s+"atoms_in_universe",\s+precision: 38}, output
+      assert_match %r{t\.integer\s+"atoms_in_universe",\s+precision: 38}, output
     elsif current_adapter?(:FbAdapter)
-      assert_match %r{t.integer\s+"atoms_in_universe",\s+precision: 18}, output
+      assert_match %r{t\.integer\s+"atoms_in_universe",\s+precision: 18}, output
     else
-      assert_match %r{t.decimal\s+"atoms_in_universe",\s+precision: 55}, output
+      assert_match %r{t\.decimal\s+"atoms_in_universe",\s+precision: 55}, output
     end
   end
 
@@ -284,7 +292,7 @@ class SchemaDumperTest < ActiveRecord::TestCase
     match = output.match(%r{create_table "goofy_string_id"(.*)do.*\n(.*)\n})
     assert_not_nil(match, "goofy_string_id table not found")
     assert_match %r(id: false), match[1], "no table id not preserved"
-    assert_match %r{t.string\s+"id",.*?null: false$}, match[2], "non-primary key id column not preserved"
+    assert_match %r{t\.string\s+"id",.*?null: false$}, match[2], "non-primary key id column not preserved"
   end
 
   def test_schema_dump_keeps_id_false_when_id_is_false_and_unique_not_null_column_added
@@ -362,7 +370,7 @@ class SchemaDumperDefaultsTest < ActiveRecord::TestCase
 
   teardown do
     return unless @connection
-    @connection.execute 'DROP TABLE defaults' if @connection.table_exists? 'defaults'
+    @connection.drop_table 'defaults', if_exists: true
   end
 
   def test_schema_dump_defaults_with_universally_supported_types
