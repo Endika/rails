@@ -23,7 +23,11 @@ module AbstractController
     def render(*args, &block)
       options = _normalize_render(*args, &block)
       self.response_body = render_to_body(options)
-      _process_format(rendered_format, options) if rendered_format
+      if options[:html]
+        _set_content_type Mime::HTML.to_s
+      else
+        _set_content_type _get_content_type(rendered_format)
+      end
       self.response_body
     end
 
@@ -54,11 +58,11 @@ module AbstractController
       Mime::TEXT
     end
 
-    DEFAULT_PROTECTED_INSTANCE_VARIABLES = Set.new %w(
+    DEFAULT_PROTECTED_INSTANCE_VARIABLES = Set.new %i(
       @_action_name @_response_body @_formats @_prefixes @_config
       @_view_context_class @_view_renderer @_lookup_context
       @_routes @_db_runtime
-    ).map(&:to_sym)
+    )
 
     # This method should return a hash with assigns.
     # You can overwrite this configuration per controller.
@@ -99,7 +103,14 @@ module AbstractController
 
     # Process the rendered format.
     # :api: private
-    def _process_format(format, options = {})
+    def _process_format(format)
+    end
+
+    def _get_content_type(rendered_format) # :nodoc:
+      rendered_format.to_s
+    end
+
+    def _set_content_type(type) # :nodoc:
     end
 
     # Normalize args and options.
@@ -107,7 +118,7 @@ module AbstractController
     def _normalize_render(*args, &block)
       options = _normalize_args(*args, &block)
       #TODO: remove defined? when we restore AP <=> AV dependency
-      if defined?(request) && request && request.variant.present?
+      if defined?(request) && request.variant.present?
         options[:variant] = request.variant
       end
       _normalize_options(options)

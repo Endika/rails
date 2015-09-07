@@ -1,3 +1,25 @@
+*   Implement a simple `AsyncJob` processor and associated `AsyncAdapter` that
+    queue jobs to a `concurrent-ruby` thread pool.
+
+    *Jerry D'Antonio*
+
+*   Implement `provider_job_id` for `queue_classic` adapter. This requires the
+    latest, currently unreleased, version of queue_classic.
+
+    *Yves Senn*
+
+*   `assert_enqueued_with` and `assert_performed_with` now returns the matched
+    job instance for further assertions.
+
+    *Jean Boussier*
+
+*   Include I18n.locale into job serialization/deserialization and use it around
+    `perform`.
+
+    Fixes #20799.
+
+    *Johannes Opper*
+
 *   Allow `DelayedJob`, `Sidekiq`, `qu`, and `que` to report the job id back to
     `ActiveJob::Base` as `provider_job_id`.
 

@@ -1,8 +1,8 @@
 require 'erubis'
-require 'set'
 require 'active_support/configurable'
 require 'active_support/descendants_tracker'
 require 'active_support/core_ext/module/anonymous'
+require 'active_support/core_ext/module/attr_internal'
 
 module AbstractController
   class Error < StandardError #:nodoc:
@@ -96,7 +96,7 @@ module AbstractController
       # ==== Returns
       # * <tt>String</tt>
       def controller_path
-        @controller_path ||= name.sub(/Controller$/, '').underscore unless anonymous?
+        @controller_path ||= name.sub(/Controller$/, ''.freeze).underscore unless anonymous?
       end
 
       # Refresh the cached action_methods when a new action_method is added.

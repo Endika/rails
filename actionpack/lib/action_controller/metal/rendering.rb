@@ -1,3 +1,6 @@
+require 'active_support/deprecation'
+require 'active_support/core_ext/string/filters'
+
 module ActionController
   module Rendering
     extend ActiveSupport::Concern
@@ -53,14 +56,12 @@ module ActionController
       nil
     end
 
-    def _process_format(format, options = {})
-      super
+    def _get_content_type(rendered_format)
+      self.content_type || super
+    end
 
-      if options[:plain]
-        self.content_type = Mime::TEXT
-      else
-        self.content_type ||= format.to_s
-      end
+    def _set_content_type(format)
+      self.content_type = format
     end
 
     # Normalize arguments by catching blocks and setting them on :update.
@@ -73,6 +74,17 @@ module ActionController
     # Normalize both text and status options.
     def _normalize_options(options) #:nodoc:
       _normalize_text(options)
+
+      if options[:text]
+        ActiveSupport::Deprecation.warn <<-WARNING.squish
+          `render :text` is deprecated because it does not actually render a
+          `text/plain` response. Switch to `render plain: 'plain text'` to
+          render as `text/plain`, `render html: '<strong>HTML</strong>'` to
+          render as `text/html`, or `render body: 'raw'` to match the deprecated
+          behavior and render with the default Content-Type, which is
+          `text/plain`.
+        WARNING
+      end
 
       if options[:html]
         options[:html] = ERB::Util.html_escape(options[:html])

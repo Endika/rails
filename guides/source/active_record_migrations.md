@@ -357,8 +357,8 @@ will append `ENGINE=BLACKHOLE` to the SQL statement used to create the table
 
 ### Creating a Join Table
 
-Migration method `create_join_table` creates an HABTM join table. A typical use
-would be:
+The migration method `create_join_table` creates an HABTM (has and belongs to
+many) join table. A typical use would be:
 
 ```ruby
 create_join_table :products, :categories
@@ -367,23 +367,21 @@ create_join_table :products, :categories
 which creates a `categories_products` table with two columns called
 `category_id` and `product_id`. These columns have the option `:null` set to
 `false` by default. This can be overridden by specifying the `:column_options`
-option.
+option:
 
 ```ruby
-create_join_table :products, :categories, column_options: {null: true}
+create_join_table :products, :categories, column_options: { null: true }
 ```
 
-will create the `product_id` and `category_id` with the `:null` option as
-`true`.
-
-You can pass the option `:table_name` when you want to customize the table
-name. For example:
+By default, the name of the join table comes from the union of the first two
+arguments provided to create_join_table, in alphabetical order.
+To customize the name of the table, provide a `:table_name` option:
 
 ```ruby
 create_join_table :products, :categories, table_name: :categorization
 ```
 
-will create a `categorization` table.
+creates a `categorization` table.
 
 `create_join_table` also accepts a block, which you can use to add indices
 (which are not created by default) or additional columns:
@@ -524,20 +522,27 @@ majority of cases, where Active Record knows how to reverse the migration
 automatically. Currently, the `change` method supports only these migration
 definitions:
 
-* `add_column`
-* `add_index`
-* `add_reference`
-* `add_timestamps`
-* `add_foreign_key`
-* `create_table`
-* `create_join_table`
-* `drop_table` (must supply a block)
-* `drop_join_table` (must supply a block)
-* `remove_timestamps`
-* `rename_column`
-* `rename_index`
-* `remove_reference`
-* `rename_table`
+* add_column
+* add_foreign_key
+* add_index
+* add_reference
+* add_timestamps
+* change_column_default (must supply a :from and :to option)
+* change_column_null
+* create_join_table
+* create_table
+* disable_extension
+* drop_join_table
+* drop_table (must supply a block)
+* enable_extension
+* remove_column (must supply a type)
+* remove_foreign_key (must supply a second table)
+* remove_index
+* remove_reference
+* remove_timestamps
+* rename_column
+* rename_index
+* rename_table
 
 `change_table` is also reversible, as long as the block does not call `change`,
 `change_default` or `remove`.
@@ -654,7 +659,7 @@ can't be done.
 You can use Active Record's ability to rollback migrations using the `revert` method:
 
 ```ruby
-require_relative '2012121212_example_migration'
+require_relative '20121212123456_example_migration'
 
 class FixupExampleMigration < ActiveRecord::Migration
   def change
@@ -1006,7 +1011,10 @@ such features, the `execute` method can be used to execute arbitrary SQL.
 Migrations and Seed Data
 ------------------------
 
-Some people use migrations to add data to the database:
+The main purpose of Rails' migration feature is to issue commands that modify the 
+schema using a consistent process. Migrations can also be used 
+to add or modify data. This is useful in an existing database that can't be destroyed 
+and recreated, such as a production database. 
 
 ```ruby
 class AddInitialProducts < ActiveRecord::Migration
@@ -1022,9 +1030,11 @@ class AddInitialProducts < ActiveRecord::Migration
 end
 ```
 
-However, Rails has a 'seeds' feature that should be used for seeding a database
-with initial data. It's a really simple feature: just fill up `db/seeds.rb`
-with some Ruby code, and run `rake db:seed`:
+To add initial data after a database is created, Rails has a built-in 
+'seeds' feature that makes the process quick and easy. This is especially 
+useful when reloading the database frequently in development and test environments. 
+It's easy to get started with this feature: just fill up `db/seeds.rb` with some 
+Ruby code, and run `rake db:seed`:
 
 ```ruby
 5.times do |i|

@@ -65,18 +65,6 @@ module ActiveRecord
         boolean:      { name: "boolean" }
       }
 
-      class Version
-        include Comparable
-
-        def initialize(version_string)
-          @version = version_string.split('.').map(&:to_i)
-        end
-
-        def <=>(version_string)
-          @version <=> version_string.split('.').map(&:to_i)
-        end
-      end
-
       class StatementPool < ConnectionAdapters::StatementPool
         private
 
@@ -387,7 +375,8 @@ module ActiveRecord
         pks[0]['name']
       end
 
-      def remove_index!(table_name, index_name) #:nodoc:
+      def remove_index(table_name, options = {}) #:nodoc:
+        index_name = index_name_for_remove(table_name, options)
         exec_query "DROP INDEX #{quote_column_name(index_name)}"
       end
 

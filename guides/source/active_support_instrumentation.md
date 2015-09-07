@@ -244,14 +244,6 @@ INFO. The adapters will add their own data as well.
 }
 ```
 
-### identity.active_record
-
-| Key              | Value                                     |
-| ---------------- | ----------------------------------------- |
-| `:line`          | Primary Key of object in the identity map |
-| `:name`          | Record's class                            |
-| `:connection_id` | `self.object_id`                          |
-
 ### instantiation.active_record
 
 | Key              | Value                                     |
@@ -402,6 +394,38 @@ INFO. Cache stores may add their own keys
   key: 'name-of-complicated-computation'
 }
 ```
+
+Active Job
+--------
+
+### enqueue_at.active_job
+
+| Key          | Value                                  |
+| ------------ | -------------------------------------- |
+| `:adapter`   | QueueAdapter object processing the job |
+| `:job`       | Job object                             |
+
+### enqueue.active_job
+
+| Key          | Value                                  |
+| ------------ | -------------------------------------- |
+| `:adapter`   | QueueAdapter object processing the job |
+| `:job`       | Job object                             |
+
+### perform_start.active_job
+
+| Key          | Value                                  |
+| ------------ | -------------------------------------- |
+| `:adapter`   | QueueAdapter object processing the job |
+| `:job`       | Job object                             |
+
+### perform.active_job
+
+| Key          | Value                                  |
+| ------------ | -------------------------------------- |
+| `:adapter`   | QueueAdapter object processing the job |
+| `:job`       | Job object                             |
+
 
 Railties
 --------

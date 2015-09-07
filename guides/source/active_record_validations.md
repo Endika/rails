@@ -348,6 +348,16 @@ class Person < ActiveRecord::Base
 end
 ```
 
+There is also a `:case_sensitive` option that you can use to define whether the
+confirmation constraint will be case sensitive or not. This option defaults to
+true.
+
+```ruby
+class Person < ActiveRecord::Base
+  validates :email, confirmation: { case_sensitive: false }
+end
+```
+
 The default error message for this helper is _"doesn't match confirmation"_.
 
 ### `exclusion`
@@ -965,8 +975,9 @@ own custom validators.
 
 You can also create methods that verify the state of your models and add
 messages to the `errors` collection when they are invalid. You must then
-register these methods by using the `validate` class method, passing in the
-symbols for the validation methods' names.
+register these methods by using the `validate`
+([API](http://api.rubyonrails.org/classes/ActiveModel/Validations/ClassMethods.html#method-i-validate))
+class method, passing in the symbols for the validation methods' names.
 
 You can pass more than one symbol for each class method and the respective
 validations will be run in the same order as they were registered.

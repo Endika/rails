@@ -65,7 +65,7 @@ module ActionDispatch # :nodoc:
     CONTENT_TYPE = "Content-Type".freeze
     SET_COOKIE   = "Set-Cookie".freeze
     LOCATION     = "Location".freeze
-    NO_CONTENT_CODES = [204, 304]
+    NO_CONTENT_CODES = [100, 101, 102, 204, 205, 304]
 
     cattr_accessor(:default_charset) { "utf-8" }
     cattr_accessor(:default_headers)
@@ -80,11 +80,21 @@ module ActionDispatch # :nodoc:
         @response = response
         @buf      = buf
         @closed   = false
+        @str_body = nil
+      end
+
+      def body
+        @str_body ||= begin
+                        buf = ''
+                        each { |chunk| buf << chunk }
+                        buf
+                      end
       end
 
       def write(string)
         raise IOError, "closed stream" if closed?
 
+        @str_body = nil
         @response.commit!
         @buf.push string
       end
@@ -140,6 +150,11 @@ module ActionDispatch # :nodoc:
       yield self if block_given?
     end
 
+    def have_header?(key);  headers.key? key;   end
+    def get_header(key);    headers[key];       end
+    def set_header(key, v); headers[key] = v;   end
+    def delete_header(key); headers.delete key; end
+
     def await_commit
       synchronize do
         @cv.wait_until { @committed }
@@ -187,13 +202,13 @@ module ActionDispatch # :nodoc:
       @content_type = content_type.to_s
     end
 
-    # Sets the HTTP character set.
+    # Sets the HTTP character set. In case of nil parameter
+    # it sets the charset to utf-8.
+    #
+    #   response.charset = 'utf-16' # => 'utf-16'
+    #   response.charset = nil      # => 'utf-8'
     def charset=(charset)
-      if nil == charset
-        @charset = self.class.default_charset
-      else
-        @charset = charset
-      end
+      @charset = charset.nil? ? self.class.default_charset : charset
     end
 
     # The response code of the request.
@@ -222,9 +237,7 @@ module ActionDispatch # :nodoc:
     # Returns the content of the response as a string. This contains the contents
     # of any calls to <tt>render</tt>.
     def body
-      strings = []
-      each { |part| strings << part.to_s }
-      strings.join
+      @stream.body
     end
 
     EMPTY = " "
@@ -248,24 +261,8 @@ module ActionDispatch # :nodoc:
       parts
     end
 
-    def set_cookie(key, value)
-      ::Rack::Utils.set_cookie_header!(header, key, value)
-    end
-
-    def delete_cookie(key, value={})
-      ::Rack::Utils.delete_cookie_header!(header, key, value)
-    end
-
     # The location header we'll be responding with.
-    def location
-      headers[LOCATION]
-    end
     alias_method :redirect_url, :location
-
-    # Sets the location header we'll be responding with.
-    def location=(url)
-      headers[LOCATION] = url
-    end
 
     def close
       stream.close if stream.respond_to?(:close)
@@ -297,7 +294,7 @@ module ActionDispatch # :nodoc:
     #   assert_equal 'AuthorOfNewPage', r.cookies['author']
     def cookies
       cookies = {}
-      if header = self[SET_COOKIE]
+      if header = get_header(SET_COOKIE)
         header = header.split("\n") if header.respond_to?(:to_str)
         header.each do |cookie|
           if pair = cookie.split(';').first
@@ -333,14 +330,14 @@ module ActionDispatch # :nodoc:
     end
 
     def assign_default_content_type_and_charset!
-      return if self[CONTENT_TYPE].present?
+      return if get_header(CONTENT_TYPE).present?
 
       @content_type ||= Mime::HTML
 
       type = @content_type.to_s.dup
       type << "; charset=#{charset}" if append_charset?
 
-      self[CONTENT_TYPE] = type
+      set_header CONTENT_TYPE, type
     end
 
     def append_charset?
@@ -384,10 +381,9 @@ module ActionDispatch # :nodoc:
     end
 
     def rack_response(status, header)
-      header[SET_COOKIE] = header[SET_COOKIE].join("\n") if header[SET_COOKIE].respond_to?(:join)
-
       if NO_CONTENT_CODES.include?(@status)
         header.delete CONTENT_TYPE
+        header.delete 'Content-Length'
         [status, header, []]
       else
         [status, header, RackBody.new(self)]

@@ -98,7 +98,19 @@ module ActionView
       #   <%# Template Dependency: todolists/todolist %>
       #   <%= render_sortable_todolists @project.todolists %>
       #
-      # The pattern used to match these is <tt>/# Template Dependency: (\S+)/</tt>,
+      # In some cases, like a single table inheritance setup, you might have
+      # a bunch of explicit dependencies. Instead of writing every template out,
+      # you can use a wildcard to match any template in a directory:
+      #
+      #   <%# Template Dependency: events/* %>
+      #   <%= render_categorizable_events @person.events %>
+      #
+      # This marks every template in the directory as a dependency. To find those
+      # templates, the wildcard path must be absolutely defined from app/views or paths
+      # otherwise added with +prepend_view_path+ or +append_view_path+.
+      # This way the wildcard for `app/views/recordings/events` would be `recordings/events/*` etc.
+      #
+      # The pattern used to match explicit dependencies is <tt>/# Template Dependency: (\S+)/</tt>,
       # so it's important that you type it out just so.
       # You can only declare one template dependency per line.
       #
@@ -137,6 +149,21 @@ module ActionView
       # The automatic cache multi read can be turned off like so:
       #
       #   <%= render @notifications, cache: false %>
+      #
+      # === Explicit Collection Caching
+      #
+      # If the partial template doesn't start with a clean cache call as
+      # mentioned above, you can still benefit from collection caching by
+      # adding a special comment format anywhere in the template, like:
+      #
+      #   <%# Template Collection: notification %>
+      #   <% my_helper_that_calls_cache(some_arg, notification) do %>
+      #     <%= notification.name %>
+      #   <% end %>
+      #
+      # The pattern used to match these is <tt>/# Template Collection: (\S+)/</tt>,
+      # so it's important that you type it out just so.
+      # You can only declare one collection in a partial template file.
       def cache(name = {}, options = {}, &block)
         if controller.respond_to?(:perform_caching) && controller.perform_caching
           safe_concat(fragment_for(cache_fragment_name(name, options), options, &block))
@@ -202,10 +229,9 @@ module ActionView
       def fragment_name_with_digest(name, virtual_path) #:nodoc:
         virtual_path ||= @virtual_path
         if virtual_path
-          names  = Array(name.is_a?(Hash) ? controller.url_for(name).split("://").last : name)
+          name  = controller.url_for(name).split("://").last if name.is_a?(Hash)
           digest = Digestor.digest name: virtual_path, finder: lookup_context, dependencies: view_cache_dependencies
-
-          [ *names, digest ]
+          [ name, digest ]
         else
           name
         end

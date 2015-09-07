@@ -16,7 +16,7 @@ module Minitest
     opts.separator ""
 
     opts.separator "Rails options:"
-    opts.on("-e", "--environment [ENV]",
+    opts.on("-e", "--environment ENV",
             "Run tests in the ENV environment") do |env|
       options[:environment] = env.strip
     end
@@ -48,4 +48,5 @@ module Minitest
   mattr_accessor(:run_with_rails_extension) { false }
 end
 
+Minitest.load_plugins
 Minitest.extensions << 'rails'

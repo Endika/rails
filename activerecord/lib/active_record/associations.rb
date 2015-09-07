@@ -61,10 +61,16 @@ module ActiveRecord
     end
   end
 
-  class HasManyThroughCantAssociateThroughHasOneOrManyReflection < ActiveRecordError #:nodoc:
+  class ThroughCantAssociateThroughHasOneOrManyReflection < ActiveRecordError #:nodoc:
     def initialize(owner, reflection)
       super("Cannot modify association '#{owner.class.name}##{reflection.name}' because the source reflection class '#{reflection.source_reflection.class_name}' is associated to '#{reflection.through_reflection.class_name}' via :#{reflection.source_reflection.macro}.")
     end
+  end
+
+  class HasManyThroughCantAssociateThroughHasOneOrManyReflection < ThroughCantAssociateThroughHasOneOrManyReflection #:nodoc:
+  end
+
+  class HasOneThroughCantAssociateThroughHasOneOrManyReflection < ThroughCantAssociateThroughHasOneOrManyReflection #:nodoc:
   end
 
   class HasManyThroughCantAssociateNewRecords < ActiveRecordError #:nodoc:
@@ -79,10 +85,16 @@ module ActiveRecord
     end
   end
 
-  class HasManyThroughNestedAssociationsAreReadonly < ActiveRecordError #:nodoc:
+  class ThroughNestedAssociationsAreReadonly < ActiveRecordError #:nodoc:
     def initialize(owner, reflection)
       super("Cannot modify association '#{owner.class.name}##{reflection.name}' because it goes through more than one other association.")
     end
+  end
+
+  class HasManyThroughNestedAssociationsAreReadonly < ThroughNestedAssociationsAreReadonly #:nodoc:
+  end
+
+  class HasOneThroughNestedAssociationsAreReadonly < ThroughNestedAssociationsAreReadonly #:nodoc:
   end
 
   class EagerLoadPolymorphicError < ActiveRecordError #:nodoc:
@@ -607,10 +619,10 @@ module ActiveRecord
     #   @tag = @post.tags.build name: "ruby"
     #   @tag.save
     #
-    # The last line ought to save the through record (a <tt>Taggable</tt>). This will only work if the
+    # The last line ought to save the through record (a <tt>Tagging</tt>). This will only work if the
     # <tt>:inverse_of</tt> is set:
     #
-    #   class Taggable < ActiveRecord::Base
+    #   class Tagging < ActiveRecord::Base
     #     belongs_to :post
     #     belongs_to :tag, inverse_of: :taggings
     #   end
@@ -631,7 +643,7 @@ module ActiveRecord
     # You can turn off the automatic detection of inverse associations by setting
     # the <tt>:inverse_of</tt> option to <tt>false</tt> like so:
     #
-    #   class Taggable < ActiveRecord::Base
+    #   class Tagging < ActiveRecord::Base
     #     belongs_to :tag, inverse_of: false
     #   end
     #

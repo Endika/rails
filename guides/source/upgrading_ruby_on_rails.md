@@ -75,7 +75,7 @@ warning by adding the following configuration to your `config/application.rb`:
 
 See [#17227](https://github.com/rails/rails/pull/17227) for more details.
 
-### ActiveJob jobs now inherent from ApplicationJob by default
+### ActiveJob jobs now inherit from ApplicationJob by default
 
 In Rails 4.2 an ActiveJob inherits from `ActiveJob::Base`. In Rails 5.0 this
 behavior has changed to now inherit from `ApplicationJob`.
@@ -895,7 +895,7 @@ CatalogProduct < ActiveRecord::Base
 end
 ```
 
-* Note that the the prefix takes scopes into account as well, so relations between `Catalog::Category` and `Catalog::Product` or `Catalog::Category` and `CatalogProduct` need to be updated similarly.
+* Note that the prefix takes scopes into account as well, so relations between `Catalog::Category` and `Catalog::Product` or `Catalog::Category` and `CatalogProduct` need to be updated similarly.
 
 ### Active Resource
 

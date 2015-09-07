@@ -1,5 +1,4 @@
 require 'yaml'
-require 'set'
 require 'active_support/benchmarkable'
 require 'active_support/dependencies'
 require 'active_support/descendants_tracker'
@@ -280,6 +279,7 @@ module ActiveRecord #:nodoc:
     extend Explain
     extend Enum
     extend Delegation::DelegateCache
+    extend CollectionCacheKey
 
     include Core
     include Persistence

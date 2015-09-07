@@ -341,8 +341,6 @@ User.find_each(begin_at: 2000, batch_size: 5000) do |user|
 end
 ```
 
-Another example would be if you wanted multiple workers handling the same processing queue. You could have each worker handle 10000 records by setting the appropriate `:begin_at` option on each worker.
-
 **`:end_at`**
 
 Similar to the `:begin_at` option, `:end_at` allows you to configure the last ID of the sequence whenever the highest ID is not the one you need.
@@ -355,6 +353,10 @@ User.find_each(begin_at: 2000, end_at: 10000, batch_size: 5000) do |user|
   NewsMailer.weekly(user).deliver_now
 end
 ```
+
+Another example would be if you wanted multiple workers handling the same
+processing queue. You could have each worker handle 10000 records by setting the
+appropriate `:begin_at` and `:end_at` options on each worker.
 
 #### `find_in_batches`
 
@@ -1264,6 +1266,18 @@ class Client < ActiveRecord::Base
     # Should return an ActiveRecord::Relation.
   end
 end
+```
+
+NOTE: The `default_scope` is also applied while creating/building a record.
+It is not applied while updating a record. E.g.:
+
+```ruby
+class Client < ActiveRecord::Base
+  default_scope { where(active: true) }
+end
+
+Client.new          # => #<Client id: nil, active: true>
+Client.unscoped.new # => #<Client id: nil, active: nil>
 ```
 
 ### Merging of scopes

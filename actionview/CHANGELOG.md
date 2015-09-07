@@ -1,3 +1,45 @@
+*   `number_to_currency` and `number_with_delimiter` now accept custom `delimiter_pattern` option 
+     to handle placement of delimiter, to support currency formats like INR 
+     
+     Example: 
+        
+        number_to_currency(1230000, delimiter_pattern: /(\d+?)(?=(\d\d)+(\d)(?!\d))/, unit: '₹', format: "%u %n")
+        # => '₹ 12,30,000.00' 
+        
+    *Vipul A M*
+    
+*   Make `disable_with` the default behavior for submit tags. Disables the
+    button on submit to prevent double submits.
+
+    *Justin Schiff*
+
+*   Add a break_sequence option to word_wrap so you can specify a custom break.
+
+    * Mauricio Gomez *
+
+*   Add wildcard matching to explicit dependencies.
+
+    Turns:
+
+    ```erb
+    <% # Template Dependency: recordings/threads/events/subscribers_changed %>
+    <% # Template Dependency: recordings/threads/events/completed %>
+    <% # Template Dependency: recordings/threads/events/uncompleted %>
+    ```
+
+    Into:
+
+    ```erb
+    <% # Template Dependency: recordings/threads/events/* %>
+    ```
+
+    *Kasper Timm Hansen*
+
+*   Allow defining explicit collection caching using a `# Template Collection: ...`
+    directive inside templates.
+
+    *Dov Murik*
+
 *   Asset helpers raise `ArgumentError` when `nil` is passed as a source.
 
     *Anton Kolomiychuk*

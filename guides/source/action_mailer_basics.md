@@ -326,7 +326,7 @@ key. The list of emails can be an array of email addresses or a single string
 with the addresses separated by commas.
 
 ```ruby
-class AdminMailer < ActionMailer::Base
+class AdminMailer < ApplicationMailer
   default to: Proc.new { Admin.pluck(:email) },
           from: 'notification@example.com'
 
@@ -532,6 +532,24 @@ url helper.
 
 NOTE: non-`GET` links require [jQuery UJS](https://github.com/rails/jquery-ujs)
 and won't work in mailer templates. They will result in normal `GET` requests.
+
+### Adding images in Action Mailer Views
+
+Unlike controllers, the mailer instance doesn't have any context about the
+incoming request so you'll need to provide the `:asset_host` parameter yourself.
+
+As the `:asset_host` usually is consistent across the application you can
+configure it globally in config/application.rb:
+
+```ruby
+config.action_mailer.asset_host = 'http://example.com'
+```
+
+Now you can display an image inside your email.
+
+```ruby
+<%= image_tag 'image.jpg' %>
+```
 
 ### Sending Multipart Emails
 
@@ -741,6 +759,9 @@ config.action_mailer.smtp_settings = {
   authentication:       'plain',
   enable_starttls_auto: true  }
 ```
+Note: As of July 15, 2014, Google increased [its security measures](https://support.google.com/accounts/answer/6010255) and now blocks attempts from apps it deems less secure.
+You can change your gmail settings [here](https://www.google.com/settings/security/lesssecureapps) to allow the attempts or 
+use another ESP to send email by replacing 'smpt.gmail.com' above with the address of your provider.
 
 Mailer Testing
 --------------

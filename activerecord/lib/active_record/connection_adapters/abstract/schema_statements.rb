@@ -607,10 +607,7 @@ module ActiveRecord
       #   remove_index :accounts, name: :by_branch_party
       #
       def remove_index(table_name, options = {})
-        remove_index!(table_name, index_name_for_remove(table_name, options))
-      end
-
-      def remove_index!(table_name, index_name) #:nodoc:
+        index_name = index_name_for_remove(table_name, options)
         execute "DROP INDEX #{quote_column_name(index_name)} ON #{quote_table_name(table_name)}"
       end
 
@@ -761,9 +758,9 @@ module ActiveRecord
       # [<tt>:name</tt>]
       #   The constraint name. Defaults to <tt>fk_rails_<identifier></tt>.
       # [<tt>:on_delete</tt>]
-      #   Action that happens <tt>ON DELETE</tt>. Valid values are +:nullify+, +:cascade:+ and +:restrict+
+      #   Action that happens <tt>ON DELETE</tt>. Valid values are +:nullify+, +:cascade+ and +:restrict+
       # [<tt>:on_update</tt>]
-      #   Action that happens <tt>ON UPDATE</tt>. Valid values are +:nullify+, +:cascade:+ and +:restrict+
+      #   Action that happens <tt>ON UPDATE</tt>. Valid values are +:nullify+, +:cascade+ and +:restrict+
       def add_foreign_key(from_table, to_table, options = {})
         return unless supports_foreign_keys?
 

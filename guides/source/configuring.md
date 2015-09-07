@@ -267,8 +267,8 @@ All these configuration options are delegated to the `I18n` library.
 * `config.active_record.logger` accepts a logger conforming to the interface of Log4r or the default Ruby Logger class, which is then passed on to any new database connections made. You can retrieve this logger by calling `logger` on either an Active Record model class or an Active Record model instance. Set to `nil` to disable logging.
 
 * `config.active_record.primary_key_prefix_type` lets you adjust the naming for primary key columns. By default, Rails assumes that primary key columns are named `id` (and this configuration option doesn't need to be set.) There are two other choices:
-** `:table_name` would make the primary key for the Customer class `customerid`
-** `:table_name_with_underscore` would make the primary key for the Customer class `customer_id`
+    * `:table_name` would make the primary key for the Customer class `customerid`
+    * `:table_name_with_underscore` would make the primary key for the Customer class `customer_id`
 
 * `config.active_record.table_name_prefix` lets you set a global string to be prepended to table names. If you set this to `northwest_`, then the Customer class will look for `northwest_customers` as its table. The default is an empty string.
 
@@ -326,7 +326,7 @@ The schema dumper adds one additional configuration option:
 
 * `config.action_controller.asset_host` sets the host for the assets. Useful when CDNs are used for hosting assets rather than the application server itself.
 
-* `config.action_controller.perform_caching` configures whether the application should perform caching or not. Set to false in development mode, true in production.
+* `config.action_controller.perform_caching` configures whether the application should perform the caching features provided by the Action Controller component or not. Set to false in development mode, true in production.
 
 * `config.action_controller.default_static_extension` configures the extension used for cached pages. Defaults to `.html`.
 
@@ -414,7 +414,7 @@ encrypted cookies salt value. Defaults to `'signed encrypted cookie'`.
 
 `config.action_view` includes a small number of configuration settings:
 
-* `config.action_view.field_error_proc` provides an HTML generator for displaying errors that come from Active Record. The default is
+* `config.action_view.field_error_proc` provides an HTML generator for displaying errors that come from Active Model. The default is
 
     ```ruby
     Proc.new do |html_tag, instance|
@@ -450,6 +450,9 @@ encrypted cookies salt value. Defaults to `'signed encrypted cookie'`.
 
 * `config.action_view.raise_on_missing_translations` determines whether an
   error should be raised for missing translations.
+
+* `config.action_view.automatically_disable_submit_tag` determines whether
+  submit_tag should automatically disable on click, this defaults to true.
 
 ### Configuring Action Mailer
 
@@ -1084,22 +1087,22 @@ development:
   timeout: 5000
 ```
 
-Since the connection pooling is handled inside of Active Record by default, all application servers (Thin, mongrel, Unicorn etc.) should behave the same. Initially, the database connection pool is empty and it will create additional connections as the demand for them increases, until it reaches the connection pool limit.
+Since the connection pooling is handled inside of Active Record by default, all application servers (Thin, mongrel, Unicorn etc.) should behave the same. The database connection pool is initially empty. As demand for connections increases it will create them until it reaches the connection pool limit.
 
-Any one request will check out a connection the first time it requires access to the database, after which it will check the connection back in, at the end of the request, meaning that the additional connection slot will be available again for the next request in the queue.
+Any one request will check out a connection the first time it requires access to the database. At the end of the request it will check the connection back in. This means that the additional connection slot will be available again for the next request in the queue.
 
 If you try to use more connections than are available, Active Record will block
-and wait for a connection from the pool. When it cannot get connection, a timeout
-error similar to given below will be thrown.
+you and wait for a connection from the pool. If it cannot get a connection, a
+timeout error similar to that given below will be thrown.
 
 ```ruby
 ActiveRecord::ConnectionTimeoutError - could not obtain a database connection within 5 seconds. The max pool size is currently 5; consider increasing it:
 ```
 
-If you get the above error, you might want to increase the size of connection
-pool by incrementing the `pool` option in `database.yml`
+If you get the above error, you might want to increase the size of the
+connection pool by incrementing the `pool` option in `database.yml`
 
-NOTE. If you are running in a multi-threaded environment, there could be a chance that several threads may be accessing multiple connections simultaneously. So depending on your current request load, you could very well have multiple threads contending for a limited amount of connections.
+NOTE. If you are running in a multi-threaded environment, there could be a chance that several threads may be accessing multiple connections simultaneously. So depending on your current request load, you could very well have multiple threads contending for a limited number of connections.
 
 
 Custom configuration
