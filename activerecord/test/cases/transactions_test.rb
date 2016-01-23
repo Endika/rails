@@ -58,6 +58,11 @@ class TransactionTest < ActiveRecord::TestCase
     end
   end
 
+  def test_add_to_null_transaction
+    topic = Topic.new
+    topic.add_to_transaction
+  end
+
   def test_successful_with_return
     committed = false
 
@@ -487,13 +492,17 @@ class TransactionTest < ActiveRecord::TestCase
   end
 
   def test_rollback_when_commit_raises
-    Topic.connection.expects(:begin_db_transaction)
-    Topic.connection.expects(:commit_db_transaction).raises('OH NOES')
-    Topic.connection.expects(:rollback_db_transaction)
+    assert_called(Topic.connection, :begin_db_transaction) do
+      Topic.connection.stub(:commit_db_transaction, ->{ raise('OH NOES') }) do
+        assert_called(Topic.connection, :rollback_db_transaction) do
 
-    assert_raise RuntimeError do
-      Topic.transaction do
-        # do nothing
+          e = assert_raise RuntimeError do
+            Topic.transaction do
+              # do nothing
+            end
+          end
+          assert_equal 'OH NOES', e.message
+        end
       end
     end
   end

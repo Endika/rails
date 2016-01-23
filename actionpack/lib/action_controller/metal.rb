@@ -1,6 +1,5 @@
 require 'active_support/core_ext/array/extract_options'
 require 'action_dispatch/middleware/stack'
-require 'active_support/deprecation'
 require 'action_dispatch/http/request'
 require 'action_dispatch/http/response'
 
@@ -135,16 +134,9 @@ module ActionController
     end
 
     def self.make_response!(request)
-      ActionDispatch::Response.new.tap do |res|
+      ActionDispatch::Response.create.tap do |res|
         res.request = request
       end
-    end
-
-    def self.build_with_env(env = {}) #:nodoc:
-      new.tap { |c|
-        c.set_request! ActionDispatch::Request.new(env)
-        c.set_response! make_response!(c.request)
-      }
     end
 
     # Delegates to the class' <tt>controller_name</tt>
@@ -174,14 +166,18 @@ module ActionController
 
     alias :response_code :status # :nodoc:
 
-    # Basic url_for that can be overridden for more robust functionality
+    # Basic url_for that can be overridden for more robust functionality.
     def url_for(string)
       string
     end
 
     def response_body=(body)
       body = [body] unless body.nil? || body.respond_to?(:each)
-      response.body = body
+      response.reset_body!
+      body.each { |part|
+        next if part.empty?
+        response.write part
+      }
       super
     end
 
@@ -194,6 +190,7 @@ module ActionController
       set_request!(request)
       set_response!(response)
       process(name)
+      request.commit_flash
       to_a
     end
 

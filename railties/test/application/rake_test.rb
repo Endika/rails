@@ -1,4 +1,3 @@
-# coding:utf-8
 require "isolation/abstract_unit"
 require "active_support/core_ext/string/strip"
 
@@ -23,6 +22,26 @@ module ApplicationTests
       require "#{app_path}/config/environment"
       ::Rails.application.load_tasks
       assert $task_loaded
+    end
+
+    def test_the_test_rake_task_is_protected_when_previous_migration_was_production
+      Dir.chdir(app_path) do
+        output = `bin/rails generate model product name:string;
+         env RAILS_ENV=production bin/rake db:create db:migrate;
+         env RAILS_ENV=production bin/rake db:test:prepare test 2>&1`
+
+        assert_match(/ActiveRecord::ProtectedEnvironmentError/, output)
+      end
+    end
+
+    def test_not_protected_when_previous_migration_was_not_production
+      Dir.chdir(app_path) do
+        output = `bin/rails generate model product name:string;
+         env RAILS_ENV=test bin/rake db:create db:migrate;
+         env RAILS_ENV=test bin/rake db:test:prepare test 2>&1`
+
+        refute_match(/ActiveRecord::ProtectedEnvironmentError/, output)
+      end
     end
 
     def test_environment_is_required_in_rake_tasks
@@ -99,7 +118,7 @@ module ApplicationTests
     end
 
     def test_code_statistics_sanity
-      assert_match "Code LOC: 7     Test LOC: 0     Code to Test Ratio: 1:0.0",
+      assert_match "Code LOC: 14     Test LOC: 0     Code to Test Ratio: 1:0.0",
         Dir.chdir(app_path){ `bin/rake stats` }
     end
 
@@ -187,7 +206,7 @@ module ApplicationTests
     def test_scaffold_tests_pass_by_default
       output = Dir.chdir(app_path) do
         `bin/rails generate scaffold user username:string password:string;
-         bin/rake db:migrate test`
+         RAILS_ENV=test bin/rake db:migrate test`
       end
 
       assert_match(/7 runs, 12 assertions, 0 failures, 0 errors/, output)
@@ -206,7 +225,7 @@ module ApplicationTests
 
       output = Dir.chdir(app_path) do
         `bin/rails generate scaffold user username:string password:string;
-         bin/rake db:migrate test`
+         RAILS_ENV=test bin/rake db:migrate test`
       end
 
       assert_match(/5 runs, 7 assertions, 0 failures, 0 errors/, output)
@@ -219,7 +238,7 @@ module ApplicationTests
 
       output = Dir.chdir(app_path) do
         `bin/rails generate scaffold LineItems product:references cart:belongs_to;
-         bin/rake db:migrate test`
+         RAILS_ENV=test bin/rake db:migrate test`
       end
 
       assert_match(/7 runs, 12 assertions, 0 failures, 0 errors/, output)

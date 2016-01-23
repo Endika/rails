@@ -123,10 +123,24 @@ module ActiveRecord
         assert_equal expect.to_i, result.rows.first.first
       end
 
+      def test_exec_insert_default_values_with_returning_disabled_and_no_sequence_name_given
+        connection = connection_without_insert_returning
+        result = connection.exec_insert("insert into postgresql_partitioned_table_parent DEFAULT VALUES", nil, [], 'id')
+        expect = connection.query('select max(id) from postgresql_partitioned_table_parent').first.first
+        assert_equal expect.to_i, result.rows.first.first
+      end
+
+      def test_exec_insert_default_values_quoted_schema_with_returning_disabled_and_no_sequence_name_given
+        connection = connection_without_insert_returning
+        result = connection.exec_insert('insert into "public"."postgresql_partitioned_table_parent" DEFAULT VALUES', nil, [], 'id')
+        expect = connection.query('select max(id) from postgresql_partitioned_table_parent').first.first
+        assert_equal expect.to_i, result.rows.first.first
+      end
+
       def test_sql_for_insert_with_returning_disabled
         connection = connection_without_insert_returning
-        result = connection.sql_for_insert('sql', nil, nil, nil, 'binds')
-        assert_equal ['sql', 'binds'], result
+        sql, binds = connection.sql_for_insert('sql', nil, nil, nil, 'binds')
+        assert_equal ['sql', 'binds'], [sql, binds]
       end
 
       def test_serial_sequence
@@ -306,11 +320,6 @@ module ActiveRecord
 
           assert_equal [[1, 'foo']], result.rows
         end
-      end
-
-      def test_substitute_at
-        bind = @connection.substitute_at(nil)
-        assert_equal Arel.sql('$1'), bind.to_sql
       end
 
       def test_partial_index

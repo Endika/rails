@@ -10,7 +10,7 @@ module ActionDispatch
         self.ignore_accept_header = false
       end
 
-      # The MIME type of the HTTP request, such as Mime::XML.
+      # The MIME type of the HTTP request, such as Mime[:xml].
       #
       # For backward compatibility, the post \format is extracted from the
       # X-Post-Data-Format HTTP header if present.
@@ -29,6 +29,10 @@ module ActionDispatch
         content_mime_type && content_mime_type.to_s
       end
 
+      def has_content_type?
+        has_header? 'CONTENT_TYPE'
+      end
+
       # Returns the accepted MIME type for the request.
       def accepts
         fetch_header("action_dispatch.request.accepts") do |k|
@@ -45,9 +49,9 @@ module ActionDispatch
 
       # Returns the MIME type for the \format used in the request.
       #
-      #   GET /posts/5.xml   | request.format => Mime::XML
-      #   GET /posts/5.xhtml | request.format => Mime::HTML
-      #   GET /posts/5       | request.format => Mime::HTML or MIME::JS, or request.accepts.first
+      #   GET /posts/5.xml   | request.format => Mime[:xml]
+      #   GET /posts/5.xhtml | request.format => Mime[:html]
+      #   GET /posts/5       | request.format => Mime[:html] or Mime[:js], or request.accepts.first
       #
       def format(view_path = [])
         formats.first || Mime::NullType.instance
@@ -65,10 +69,12 @@ module ActionDispatch
             Array(Mime[parameters[:format]])
           elsif use_accept_header && valid_accept_header
             accepts
+          elsif extension_format = format_from_path_extension
+            [extension_format]
           elsif xhr?
-            [Mime::JS]
+            [Mime[:js]]
           else
-            [Mime::HTML]
+            [Mime[:html]]
           end
           set_header k, v
         end
@@ -155,6 +161,13 @@ module ActionDispatch
 
       def use_accept_header
         !self.class.ignore_accept_header
+      end
+
+      def format_from_path_extension
+        path = @env['action_dispatch.original_path'] || @env['PATH_INFO']
+        if match = path && path.match(/\.(\w+)\z/)
+          Mime[match.captures.first]
+        end
       end
     end
   end

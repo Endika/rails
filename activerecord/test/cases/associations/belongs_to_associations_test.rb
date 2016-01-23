@@ -53,7 +53,7 @@ class BelongsToAssociationsTest < ActiveRecord::TestCase
 
   def test_belongs_to_with_primary_key_joins_on_correct_column
     sql = Client.joins(:firm_with_primary_key).to_sql
-    if current_adapter?(:MysqlAdapter, :Mysql2Adapter)
+    if current_adapter?(:Mysql2Adapter)
       assert_no_match(/`firm_with_primary_keys_companies`\.`id`/, sql)
       assert_match(/`firm_with_primary_keys_companies`\.`name`/, sql)
     elsif current_adapter?(:OracleAdapter)
@@ -500,7 +500,9 @@ class BelongsToAssociationsTest < ActiveRecord::TestCase
     line_item = LineItem.create!
     invoice = Invoice.create!(line_items: [line_item])
     initial = invoice.updated_at
-    line_item.touch
+    travel(1.second) do
+      line_item.touch
+    end
 
     assert_not_equal initial, invoice.reload.updated_at
   end

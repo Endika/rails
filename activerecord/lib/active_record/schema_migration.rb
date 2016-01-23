@@ -2,10 +2,14 @@ require 'active_record/scoping/default'
 require 'active_record/scoping/named'
 
 module ActiveRecord
-  class SchemaMigration < ActiveRecord::Base
+  # This class is used to create a table that keeps track of which migrations
+  # have been applied to a given database. When a migration is run, its schema
+  # number is inserted in to the `SchemaMigration.table_name` so it doesn't need
+  # to be executed the next time.
+  class SchemaMigration < ActiveRecord::Base # :nodoc:
     class << self
       def primary_key
-        nil
+        "version"
       end
 
       def table_name
@@ -17,7 +21,7 @@ module ActiveRecord
       end
 
       def table_exists?
-        connection.table_exists?(table_name)
+        ActiveSupport::Deprecation.silence { connection.table_exists?(table_name) }
       end
 
       def create_table(limit=nil)
@@ -27,8 +31,8 @@ module ActiveRecord
 
           connection.create_table(table_name, id: false) do |t|
             t.column :version, :string, version_options
+            t.index  :version, unique: true, name: index_name
           end
-          connection.add_index table_name, :version, unique: true, name: index_name
         end
       end
 

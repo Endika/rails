@@ -1,8 +1,10 @@
 require 'active_support/core_ext/hash/indifferent_access'
+require 'active_support/core_ext/hash/transform_values'
 require 'active_support/core_ext/array/wrap'
 require 'active_support/core_ext/string/filters'
 require 'active_support/rescuable'
 require 'action_dispatch/http/upload'
+require 'rack/test'
 require 'stringio'
 require 'set'
 
@@ -97,9 +99,8 @@ module ActionController
   # environment they should only be set once at boot-time and never mutated at
   # runtime.
   #
-  # <tt>ActionController::Parameters</tt> inherits from
-  # <tt>ActiveSupport::HashWithIndifferentAccess</tt>, this means
-  # that you can fetch values using either <tt>:key</tt> or <tt>"key"</tt>.
+  # You can fetch values of <tt>ActionController::Parameters</tt> using either
+  # <tt>:key</tt> or <tt>"key"</tt>.
   #
   #   params = ActionController::Parameters.new(key: 'value')
   #   params[:key]  # => "value"
@@ -108,7 +109,8 @@ module ActionController
     cattr_accessor :permit_all_parameters, instance_accessor: false
     cattr_accessor :action_on_unpermitted_parameters, instance_accessor: false
 
-    delegate :keys, :key?, :has_key?, :empty?, :inspect, to: :@parameters
+    delegate :keys, :key?, :has_key?, :values, :has_value?, :value?, :empty?, :include?, :inspect,
+      :as_json, to: :@parameters
 
     # By default, never raise an UnpermittedParameters exception if these
     # params are present. The default includes both 'controller' and 'action'
@@ -158,12 +160,16 @@ module ActionController
       if other_hash.respond_to?(:permitted?)
         super
       else
-        @parameters == other_hash
+        if other_hash.is_a?(Hash)
+          @parameters == other_hash.with_indifferent_access
+        else
+          @parameters == other_hash
+        end
       end
     end
 
-    # Returns a safe +Hash+ representation of this parameter with all
-    # unpermitted keys removed.
+    # Returns a safe <tt>ActiveSupport::HashWithIndifferentAccess</tt>
+    # representation of this parameter with all unpermitted keys removed.
     #
     #   params = ActionController::Parameters.new({
     #     name: 'Senjougahara Hitagi',
@@ -175,15 +181,17 @@ module ActionController
     #   safe_params.to_h # => {"name"=>"Senjougahara Hitagi"}
     def to_h
       if permitted?
-        @parameters.to_h
+        convert_parameters_to_hashes(@parameters, :to_h)
       else
         slice(*self.class.always_permitted_parameters).permit!.to_h
       end
     end
 
-    # Returns an unsafe, unfiltered +Hash+ representation of this parameter.
+    # Returns an unsafe, unfiltered
+    # <tt>ActiveSupport::HashWithIndifferentAccess</tt> representation of this
+    # parameter.
     def to_unsafe_h
-      @parameters.to_h
+      convert_parameters_to_hashes(@parameters, :to_unsafe_h)
     end
     alias_method :to_unsafe_hash, :to_unsafe_h
 
@@ -416,7 +424,7 @@ module ActionController
     #   params.fetch(:none)                 # => ActionController::ParameterMissing: param is missing or the value is empty: none
     #   params.fetch(:none, 'Francesco')    # => "Francesco"
     #   params.fetch(:none) { 'Francesco' } # => "Francesco"
-    def fetch(key, *args, &block)
+    def fetch(key, *args)
       convert_value_to_parameters(
         @parameters.fetch(key) {
           if block_given?
@@ -511,7 +519,7 @@ module ActionController
     # to key. If the key is not found, returns the default value. If the
     # optional code block is given and the key is not found, pass in the key
     # and return the result of block.
-    def delete(key, &block)
+    def delete(key)
       convert_value_to_parameters(@parameters.delete(key))
     end
 
@@ -541,7 +549,7 @@ module ActionController
     end
     alias_method :delete_if, :reject!
 
-    # Return values that were assigned to the given +keys+. Note that all the
+    # Returns values that were assigned to the given +keys+. Note that all the
     # +Hash+ objects will be converted to <tt>ActionController::Parameters</tt>.
     def values_at(*keys)
       convert_value_to_parameters(@parameters.values_at(*keys))
@@ -576,6 +584,24 @@ module ActionController
       dup
     end
 
+    def method_missing(method_sym, *args, &block)
+      if @parameters.respond_to?(method_sym)
+        message = <<-DEPRECATE.squish
+          Method #{ method_sym } is deprecated and will be removed in Rails 5.1,
+          as `ActionController::Parameters` no longer inherits from
+          hash. Using this deprecated behavior exposes potential security
+          problems. If you continue to use this method you may be creating
+          a security vulunerability in your app that can be exploited. Instead,
+          consider using one of these documented methods which are not
+          deprecated: http://api.rubyonrails.org/v#{ActionPack.version}/classes/ActionController/Parameters.html
+        DEPRECATE
+        ActiveSupport::Deprecation.warn(message)
+        @parameters.public_send(method_sym, *args, &block)
+      else
+        super
+      end
+    end
+
     protected
       def permitted=(new_permitted)
         @permitted = new_permitted
@@ -589,6 +615,21 @@ module ActionController
       def new_instance_with_inherited_permitted_status(hash)
         self.class.new(hash).tap do |new_instance|
           new_instance.permitted = @permitted
+        end
+      end
+
+      def convert_parameters_to_hashes(value, using)
+        case value
+        when Array
+          value.map { |v| convert_parameters_to_hashes(v, using) }
+        when Hash
+          value.transform_values do |v|
+            convert_parameters_to_hashes(v, using)
+          end.with_indifferent_access
+        when Parameters
+          value.send(using)
+        else
+          value
         end
       end
 

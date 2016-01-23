@@ -18,9 +18,9 @@ module ActiveRecord
         spec.merge!(prepare_column_options(column).delete_if { |key, _| [:name, :type].include?(key) })
       end
 
-      # This can be overridden on a Adapter level basis to support other
+      # This can be overridden on an Adapter level basis to support other
       # extended datatypes (Example: Adding an array option in the
-      # PostgreSQLAdapter)
+      # PostgreSQL::ColumnDumper)
       def prepare_column_options(column)
         spec = {}
         spec[:name]      = column.name.inspect
@@ -61,8 +61,8 @@ module ActiveRecord
       end
 
       def schema_limit(column)
-        limit = column.limit || native_database_types[column.type][:limit]
-        limit.inspect if limit
+        limit = column.limit
+        limit.inspect if limit && limit != native_database_types[column.type][:limit]
       end
 
       def schema_precision(column)
@@ -76,9 +76,15 @@ module ActiveRecord
       def schema_default(column)
         type = lookup_cast_type_from_column(column)
         default = type.deserialize(column.default)
-        unless default.nil?
+        if default.nil?
+          schema_expression(column)
+        else
           type.type_cast_for_schema(default)
         end
+      end
+
+      def schema_expression(column)
+        "-> { #{column.default_function.inspect} }" if column.default_function
       end
 
       def schema_collation(column)

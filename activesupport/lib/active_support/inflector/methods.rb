@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 require 'active_support/inflections'
 
 module ActiveSupport
@@ -175,7 +173,7 @@ module ActiveSupport
     #
     # Singular names are not handled correctly:
     #
-    #   classify('calculus')     # => "Calculu"
+    #   classify('calculus')     # => "Calculus"
     def classify(table_name)
       # strip out any leading schema name
       camelize(singularize(table_name.to_s.sub(/.*\./, ''.freeze)))

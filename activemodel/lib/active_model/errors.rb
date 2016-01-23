@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 require 'active_support/core_ext/array/conversions'
 require 'active_support/core_ext/string/inflections'
 require 'active_support/core_ext/object/deep_dup'
@@ -81,6 +79,18 @@ module ActiveModel
       @messages = other.messages.dup
       @details  = other.details.deep_dup
       super
+    end
+
+    # Copies the errors from <tt>other</tt>.
+    #
+    # other - The ActiveModel::Errors instance.
+    #
+    # Examples
+    #
+    #   person.errors.copy!(other)
+    def copy!(other) # :nodoc:
+      @messages = other.messages.dup
+      @details  = other.details.dup
     end
 
     # Clear the error messages.

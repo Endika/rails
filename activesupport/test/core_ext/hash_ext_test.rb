@@ -1042,7 +1042,25 @@ class HashExtTest < ActiveSupport::TestCase
     hash = Hash.new
     hash.default_proc = proc { |h, k| raise "walrus" }
 
-    assert_nothing_raised { HashWithIndifferentAccess.new_from_hash_copying_default(hash) }
+    assert_deprecated { HashWithIndifferentAccess.new_from_hash_copying_default(hash) }
+  end
+
+  def test_new_with_to_hash_conversion_copies_default
+    normal_hash = Hash.new(3)
+    normal_hash[:a] = 1
+
+    hash = HashWithIndifferentAccess.new(HashByConversion.new(normal_hash))
+    assert_equal 1, hash[:a]
+    assert_equal 3, hash[:b]
+  end
+
+  def test_new_with_to_hash_conversion_copies_default_proc
+    normal_hash = Hash.new { 1 + 2 }
+    normal_hash[:a] = 1
+
+    hash = HashWithIndifferentAccess.new(HashByConversion.new(normal_hash))
+    assert_equal 1, hash[:a]
+    assert_equal 3, hash[:b]
   end
 end
 
@@ -1569,9 +1587,9 @@ class HashToXmlTest < ActiveSupport::TestCase
     assert_equal 3, hash_wia[:new_key]
   end
 
-  def test_should_use_default_proc_if_no_key_is_supplied
+  def test_should_return_nil_if_no_key_is_supplied
     hash_wia = HashWithIndifferentAccess.new { 1 +  2 }
-    assert_equal 3, hash_wia.default
+    assert_equal nil, hash_wia.default
   end
 
   def test_should_use_default_value_for_unknown_key
@@ -1594,7 +1612,6 @@ class HashToXmlTest < ActiveSupport::TestCase
     assert_equal hash_wia, hash_wia.with_indifferent_access
     assert_not_same hash_wia, hash_wia.with_indifferent_access
   end
-
 
   def test_allows_setting_frozen_array_values_with_indifferent_access
     value = [1, 2, 3].freeze

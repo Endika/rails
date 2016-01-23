@@ -163,6 +163,14 @@ class definition:
 config.api_only = true
 ```
 
+Optionally, in `config/environments/development.rb` add the following line
+to render error responses using the API format (JSON by default) when it
+is a local request:
+
+```ruby
+config.debug_exception_response_format = :api
+```
+
 Finally, inside `app/controllers/application_controller.rb`, instead of:
 
 ```ruby
@@ -194,7 +202,6 @@ An API application comes with the following middlewares by default:
 - `ActionDispatch::RemoteIp`
 - `ActionDispatch::Reloader`
 - `ActionDispatch::Callbacks`
-- `ActionDispatch::ParamsParser`
 - `Rack::Head`
 - `Rack::ConditionalGet`
 - `Rack::ETag`
@@ -209,7 +216,7 @@ building, and make sense in an API-only Rails application.
 You can get a list of all middlewares in your application via:
 
 ```bash
-$ rake middleware
+$ rails middleware
 ```
 
 ### Using the Cache Middleware
@@ -222,7 +229,7 @@ For instance, using the `stale?` method:
 
 ```ruby
 def show
- @post = Post.find(params[:id])
+  @post = Post.find(params[:id])
 
   if stale?(last_modified: @post.updated_at)
     render json: @post
@@ -241,7 +248,7 @@ cross-client caching in the call to `stale?`:
 
 ```ruby
 def show
- @post = Post.find(params[:id])
+  @post = Post.find(params[:id])
 
   if stale?(last_modified: @post.updated_at, public: true)
     render json: @post
@@ -292,9 +299,9 @@ instructions in the `Rack::Sendfile` documentation.
 NOTE: The `Rack::Sendfile` middleware is always outside of the `Rack::Lock`
 mutex, even in single-threaded applications.
 
-### Using ActionDispatch::ParamsParser
+### Using ActionDispatch::Request
 
-`ActionDispatch::ParamsParser` will take parameters from the client in the JSON
+`ActionDispatch::Request#params` will take parameters from the client in the JSON
 format and make them available in your controller inside `params`.
 
 To use this, your client will need to make a request with JSON-encoded parameters
@@ -313,7 +320,7 @@ jQuery.ajax({
 });
 ```
 
-`ActionDispatch::ParamsParser` will see the `Content-Type` and your parameters
+`ActionDispatch::Request` will see the `Content-Type` and your parameters
 will be:
 
 ```ruby

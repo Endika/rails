@@ -22,13 +22,13 @@ module AbstractController
     # :api: public
     def render(*args, &block)
       options = _normalize_render(*args, &block)
-      self.response_body = render_to_body(options)
+      rendered_body = render_to_body(options)
       if options[:html]
-        _set_content_type Mime::HTML.to_s
+        _set_html_content_type
       else
-        _set_content_type _get_content_type(rendered_format)
+        _set_rendered_content_type rendered_format
       end
-      self.response_body
+      self.response_body = rendered_body
     end
 
     # Raw rendering of a template to a string.
@@ -55,7 +55,7 @@ module AbstractController
     # Returns Content-Type of rendered content
     # :api: public
     def rendered_format
-      Mime::TEXT
+      Mime[:text]
     end
 
     DEFAULT_PROTECTED_INSTANCE_VARIABLES = Set.new %i(
@@ -106,11 +106,10 @@ module AbstractController
     def _process_format(format)
     end
 
-    def _get_content_type(rendered_format) # :nodoc:
-      rendered_format.to_s
+    def _set_html_content_type # :nodoc:
     end
 
-    def _set_content_type(type) # :nodoc:
+    def _set_rendered_content_type(format) # :nodoc:
     end
 
     # Normalize args and options.

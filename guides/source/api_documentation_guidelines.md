@@ -20,7 +20,7 @@ The [Rails API documentation](http://api.rubyonrails.org) is generated with
 in the rails root directory, run `bundle install` and execute:
 
 ```bash
-  bundle exec rake rdoc
+  ./bin/rails rdoc
 ```
 
 Resulting HTML files can be found in the ./doc/rdoc directory.
@@ -84,10 +84,11 @@ English
 
 Please use American English (*color*, *center*, *modularize*, etc). See [a list of American and British English spelling differences here](http://en.wikipedia.org/wiki/American_and_British_English_spelling_differences).
 
-Comma
--------
+Oxford Comma
+------------
 
-Please use the Oxford comma (*red, white, and blue* style). See [the detail of Oxford comma](http://en.wikipedia.org/wiki/Serial_comma).
+Please use the [Oxford comma](http://en.wikipedia.org/wiki/Serial_comma)
+("red, white, and blue", instead of "red, white and blue").
 
 Example Code
 ------------
@@ -239,7 +240,7 @@ You can quickly test the RDoc output with the following command:
 
 ```
 $ echo "+:to_param+" | rdoc --pipe
-#=> <p><code>:to_param</code></p>
+# => <p><code>:to_param</code></p>
 ```
 
 ### Regular Font

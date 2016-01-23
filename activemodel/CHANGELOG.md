@@ -1,3 +1,23 @@
+## Rails 5.0.0.beta1 (December 18, 2015) ##
+
+*   Validate multiple contexts on `valid?` and `invalid?` at once.
+
+    Example:
+
+        class Person
+          include ActiveModel::Validations
+
+          attr_reader :name, :title
+          validates_presence_of :name, on: :create
+          validates_presence_of :title, on: :update
+        end
+
+        person = Person.new
+        person.valid?([:create, :update])    # => false
+        person.errors.messages               # => {:name=>["can't be blank"], :title=>["can't be blank"]}
+
+    *Dmitry Polushkin*
+
 *   Add case_sensitive option for confirmation validator in models.
 
     *Akshat Sharma*
@@ -101,11 +121,12 @@
 
     The preferred method to halt a callback chain from now on is to explicitly
     `throw(:abort)`.
-    In the past, returning `false` in an ActiveModel or ActiveModel::Validations
-    `before_` callback had the side effect of halting the callback chain.
+    In the past, returning `false` in an Active Model `before_` callback had
+    the side effect of halting the callback chain.
     This is not recommended anymore and, depending on the value of the
-    `config.active_support.halt_callback_chains_on_return_false` option, will
+    `ActiveSupport.halt_callback_chains_on_return_false` option, will
     either not work at all or display a deprecation warning.
 
+    *claudiob*
 
 Please check [4-2-stable](https://github.com/rails/rails/blob/4-2-stable/activemodel/CHANGELOG.md) for previous changes.

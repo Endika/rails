@@ -37,7 +37,7 @@ module ActionController
 
     module ClassMethods
       def make_response!(request)
-        if request.env["HTTP_VERSION"] == "HTTP/1.0"
+        if request.get_header("HTTP_VERSION") == "HTTP/1.0"
           super
         else
           Live::Response.new.tap do |res|
@@ -145,8 +145,8 @@ module ActionController
 
       def write(string)
         unless @response.committed?
-          @response.headers["Cache-Control"] = "no-cache"
-          @response.headers.delete "Content-Length"
+          @response.set_header "Cache-Control", "no-cache"
+          @response.delete_header "Content-Length"
         end
 
         super
@@ -213,29 +213,6 @@ module ActionController
     end
 
     class Response < ActionDispatch::Response #:nodoc: all
-      class Header < DelegateClass(Hash) # :nodoc:
-        def initialize(response, header)
-          @response = response
-          super(header)
-        end
-
-        def []=(k,v)
-          if @response.committed?
-            raise ActionDispatch::IllegalStateError, 'header already sent'
-          end
-
-          super
-        end
-
-        def merge(other)
-          self.class.new @response, __getobj__.merge(other)
-        end
-
-        def to_hash
-          __getobj__.dup
-        end
-      end
-
       private
 
       def before_committed
@@ -245,24 +222,10 @@ module ActionController
         jar.write self unless committed?
       end
 
-      def before_sending
-        super
-        request.cookie_jar.commit!
-        headers.freeze
-      end
-
       def build_buffer(response, body)
         buf = Live::Buffer.new response
         body.each { |part| buf.write part }
         buf
-      end
-
-      def merge_default_headers(original, default)
-        Header.new self, super
-      end
-
-      def handle_conditional_get!
-        super unless committed?
       end
     end
 
@@ -322,10 +285,6 @@ module ActionController
     def response_body=(body)
       super
       response.close if response
-    end
-
-    def set_response!(request)
-      @_response = self.class.make_response! request
     end
   end
 end

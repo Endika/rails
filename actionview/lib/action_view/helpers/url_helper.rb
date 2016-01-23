@@ -41,10 +41,20 @@ module ActionView
       end
 
       def _back_url # :nodoc:
-        referrer = controller.respond_to?(:request) && controller.request.env["HTTP_REFERER"]
-        referrer || 'javascript:history.back()'
+        _filtered_referrer || 'javascript:history.back()'
       end
       protected :_back_url
+
+      def _filtered_referrer # :nodoc:
+        if controller.respond_to?(:request)
+          referrer = controller.request.env["HTTP_REFERER"]
+          if referrer && URI(referrer).scheme != 'javascript'
+            referrer
+          end
+        end
+      rescue URI::InvalidURIError
+      end
+      protected :_filtered_referrer
 
       # Creates an anchor element of the given +name+ using a URL created by the set of +options+.
       # See the valid options in the documentation for +url_for+. It's also possible to
@@ -301,7 +311,11 @@ module ActionView
         form_options[:action] = url
         form_options[:'data-remote'] = true if remote
 
-        request_token_tag = form_method == 'post' ? token_tag : ''
+        request_token_tag = if form_method == 'post'
+          token_tag(nil, form_options: form_options)
+        else
+          ''
+        end
 
         html_options = convert_options_to_data_attributes(options, html_options)
         html_options['type'] = 'submit'
@@ -569,9 +583,9 @@ module ActionView
           html_options["data-method"] = method
         end
 
-        def token_tag(token=nil)
+        def token_tag(token=nil, form_options: {})
           if token != false && protect_against_forgery?
-            token ||= form_authenticity_token
+            token ||= form_authenticity_token(form_options: form_options)
             tag(:input, type: "hidden", name: request_forgery_protection_token.to_s, value: token)
           else
             ''

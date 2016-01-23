@@ -7,7 +7,7 @@ This guide covers the user-facing features of Rails routing.
 
 After reading this guide, you will know:
 
-* How to interpret the code in `routes.rb`.
+* How to interpret the code in `config/routes.rb`.
 * How to construct your own routes, using either the preferred resourceful style or the `match` method.
 * What parameters to expect an action to receive.
 * How to automatically create paths and URLs using route helpers.
@@ -79,7 +79,7 @@ it asks the router to map it to a controller action. If the first matching route
 resources :photos
 ```
 
-Rails would dispatch that request to the `destroy` method on the `photos` controller with `{ id: '17' }` in `params`.
+Rails would dispatch that request to the `destroy` action on the `photos` controller with `{ id: '17' }` in `params`.
 
 ### CRUD, Verbs, and Actions
 
@@ -142,10 +142,10 @@ Sometimes, you have a resource that clients always look up without referencing a
 get 'profile', to: 'users#show'
 ```
 
-Passing a `String` to `get` will expect a `controller#action` format, while passing a `Symbol` will map directly to an action:
+Passing a `String` to `get` will expect a `controller#action` format, while passing a `Symbol` will map directly to an action but you must also specify the `controller:` to use:
 
 ```ruby
-get 'profile', to: :show
+get 'profile', to: :show, controller: 'users'
 ```
 
 This resourceful route:
@@ -252,11 +252,11 @@ TIP: _If you need to use a different controller namespace inside a `namespace` b
 It's common to have resources that are logically children of other resources. For example, suppose your application includes these models:
 
 ```ruby
-class Magazine < ActiveRecord::Base
+class Magazine < ApplicationRecord
   has_many :ads
 end
 
-class Ad < ActiveRecord::Base
+class Ad < ApplicationRecord
   belongs_to :magazine
 end
 ```
@@ -392,7 +392,7 @@ The comments resource here will have the following routes generated for it:
 
 ### Routing concerns
 
-Routing Concerns allows you to declare common routes that can be reused inside other resources and routes. To define a concern:
+Routing concerns allow you to declare common routes that can be reused inside other resources and routes. To define a concern:
 
 ```ruby
 concern :commentable do
@@ -1096,10 +1096,10 @@ Video.find_by(identifier: params[:identifier])
 ```
 
 You can override `ActiveRecord::Base#to_param` of a related model to construct
-an URL:
+a URL:
 
 ```ruby
-class Video < ActiveRecord::Base
+class Video < ApplicationRecord
   def to_param
     identifier
   end
@@ -1116,16 +1116,16 @@ Rails offers facilities for inspecting and testing your routes.
 
 ### Listing Existing Routes
 
-To get a complete list of the available routes in your application, visit `http://localhost:3000/rails/info/routes` in your browser while your server is running in the **development** environment. You can also execute the `rake routes` command in your terminal to produce the same output.
+To get a complete list of the available routes in your application, visit `http://localhost:3000/rails/info/routes` in your browser while your server is running in the **development** environment. You can also execute the `rails routes` command in your terminal to produce the same output.
 
-Both methods will list all of your routes, in the same order that they appear in `routes.rb`. For each route, you'll see:
+Both methods will list all of your routes, in the same order that they appear in `config/routes.rb`. For each route, you'll see:
 
 * The route name (if any)
 * The HTTP verb used (if the route doesn't respond to all verbs)
 * The URL pattern to match
 * The routing parameters for the route
 
-For example, here's a small section of the `rake routes` output for a RESTful route:
+For example, here's a small section of the `rails routes` output for a RESTful route:
 
 ```
     users GET    /users(.:format)          users#index
@@ -1137,10 +1137,10 @@ edit_user GET    /users/:id/edit(.:format) users#edit
 You may restrict the listing to the routes that map to a particular controller setting the `CONTROLLER` environment variable:
 
 ```bash
-$ CONTROLLER=users bin/rake routes
+$ CONTROLLER=users bin/rails routes
 ```
 
-TIP: You'll find that the output from `rake routes` is much more readable if you widen your terminal window until the output lines don't wrap.
+TIP: You'll find that the output from `rails routes` is much more readable if you widen your terminal window until the output lines don't wrap.
 
 ### Testing Routes
 

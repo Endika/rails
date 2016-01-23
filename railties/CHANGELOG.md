@@ -1,3 +1,198 @@
+*   Bring back `TEST=` env for `rake test` task.
+
+    *Yves Senn*
+
+*   Specify log file names or all logs to clear `rake log:clear`
+
+    Specify which logs to clear when using the `rake log:clear` task, e.g. `rake log:clear LOGS=test,staging`
+
+    Clear all logs from log/*.log e.g. `rake log:clear LOGS=all`
+
+    By default `rake log:clear` clears standard environment log files i.e. 'development,test,production'
+
+    *Pramod Shinde*
+
+*   Fix using `add_source` with a block after using `gem` in a custom generator.
+
+    *Will Fisher*
+
+## Rails 5.0.0.beta1 (December 18, 2015) ##
+
+*   Newly generated plugins get a `README.md` in Markdown.
+
+    *Yuji Yaginuma*
+
+*   The generated config file for the development environment includes a new
+    config line, commented out, showing how to enable the evented file watcher.
+
+    *Xavier Noria*
+
+*   `config.debug_exception_response_format` configures the format used
+    in responses when errors occur in development mode.
+
+    Set `config.debug_exception_response_format` to render an HTML page with
+    debug info (using the value `:default`) or render debug info preserving
+    the response format (using the value `:api`).
+
+    *Jorge Bejar*
+
+*   Fix setting exit status code for rake test tasks. The exit status code
+    was not set when tests were fired with `rake`. Now, it is being set and it matches
+    behavior of running tests via `rails` command (`rails test`), so no matter if
+    `rake test` or `rails test` command is used the exit code will be set.
+
+    *Arkadiusz Fal*
+
+*   Add Command infrastructure to replace rake.
+
+    Also move `rake dev:cache` to new infrastructure. You'll need to use
+    `rails dev:cache` to toggle development caching from now on.
+
+    *Chuck Callebs*
+
+*   Allow use of minitest-rails gem with Rails test runner.
+
+    Fixes #22455.
+
+    *Chris Kottom*
+
+*   Add `bin/test` script to rails plugin.
+
+    `bin/test` can use the same API as `bin/rails test`.
+
+    *Yuji Yaginuma*
+
+*   Make `static_index` part of the `config.public_file_server` config and
+    call it `public_file_server.index_name`.
+
+    *Yuki Nishijima*
+
+*   Deprecate `serve_static_files` in favor of `public_file_server.enabled`.
+
+    Unifies the static asset options under `public_file_server`.
+
+    To upgrade, replace occurrences of:
+
+    ```
+    config.serve_static_files = # false or true
+    ```
+
+    in your environment files, with:
+
+    ```
+    config.public_file_server.enabled = # false or true
+    ```
+
+    *Kasper Timm Hansen*
+
+*   Deprecate `config.static_cache_control` in favor of
+    `config.public_file_server.headers`.
+
+    To upgrade, replace occurrences of:
+
+    ```
+    config.static_cache_control = 'public, max-age=60'
+    ```
+
+    in your environment files, with:
+
+    ```
+    config.public_file_server.headers = {
+      'Cache-Control' => 'public, max-age=60'
+    }
+    ```
+
+    `config.public_file_server.headers` can set arbitrary headers, sent along when
+    a response is delivered.
+
+    *Yuki Nishijima*
+
+*   Route generator should be idempotent
+    running generators several times no longer require you to cleanup routes.rb
+
+    *Thiago Pinto*
+
+*   Allow passing an environment to `config_for`.
+
+    *Simon Eskildsen*
+
+*   Allow rake:stats to account for rake tasks in lib/tasks
+
+    *Kevin Deisz*
+
+*   Added javascript to update the URL on mailer previews with the currently
+    selected email format. Reloading the page now keeps you on your selected
+    format rather than going back to the default html version.
+
+    *James Kerr*
+
+*   Add fail fast to `bin/rails test`
+
+    Adding `--fail-fast` or `-f` when running tests will interrupt the run on
+    the first failure:
+
+    ```
+    # Running:
+
+    ................................................S......E
+
+    ArgumentError: Wups! Bet you didn't expect this!
+        test/models/bunny_test.rb:19:in `block in <class:BunnyTest>'
+
+    bin/rails test test/models/bunny_test.rb:18
+
+    ....................................F
+
+    This failed
+
+    bin/rails test test/models/bunny_test.rb:14
+
+    Interrupted. Exiting...
+
+
+    Finished in 0.051427s, 1808.3872 runs/s, 1769.4972 assertions/s.
+
+    ```
+
+    Note that any unexpected errors don't abort the run.
+
+    *Kasper Timm Hansen*
+
+*   Add inline output to `bin/rails test`
+
+    Any failures or errors (and skips if running in verbose mode) are output
+    during a test run:
+
+    ```
+    # Running:
+
+    .....S..........................................F
+
+    This failed
+
+    bin/rails test test/models/bunny_test.rb:14
+
+    .................................E
+
+    ArgumentError: Wups! Bet you didn't expect this!
+        test/models/bunny_test.rb:19:in `block in <class:BunnyTest>'
+
+    bin/rails test test/models/bunny_test.rb:18
+
+    ....................
+
+    Finished in 0.069708s, 1477.6019 runs/s, 1448.9106 assertions/s.
+    ```
+
+    Output can be deferred to after a run with the `--defer-output` option.
+
+    *Kasper Timm Hansen*
+
+*   Fix displaying mailer previews on non local requests when config
+    `action_mailer.show_previews` is set
+
+    *Wojciech Wnętrzak*
+
 *   `rails server` will now honour the `PORT` environment variable
 
     *David Cornu*
@@ -20,7 +215,7 @@
 *   Fix STATS_DIRECTORIES already defined warning when running rake from within
     the top level directory of an engine that has a test app.
 
-    Fixes #20510
+    Fixes #20510.
 
     *Ersin Akinci*
 
@@ -68,13 +263,13 @@
     middleware for API apps & generators generates the right files,
     folders and configurations.
 
-    *Santiago Pastorino & Jorge Bejar*
+    *Santiago Pastorino*, *Jorge Bejar*
 
 *   Make generated scaffold functional tests work inside engines.
 
     *Yuji Yaginuma*
 
-*   Generator a `.keep` file in the `tmp` folder by default as many scripts
+*   Generate a `.keep` file in the `tmp` folder by default as many scripts
     assume the existence of this folder and most would fail if it is absent.
 
     See #20299.
@@ -140,7 +335,7 @@
 *   Created rake restart task. Restarts your Rails app by touching the
     `tmp/restart.txt`.
 
-    Fixes #18876.
+    See #18876.
 
     *Hyonjee Joo*
 
@@ -229,10 +424,11 @@
 
     Newly generated Rails apps have a new initializer called
     `callback_terminator.rb` which sets the value of the configuration option
-    `config.active_support.halt_callback_chains_on_return_false` to `false`.
+    `ActiveSupport.halt_callback_chains_on_return_false` to `false`.
 
-    As a result, new Rails apps do not halt callback chains when a callback
-    returns `false`; only when they are explicitly halted with `throw(:abort)`.
+    As a result, new Rails apps do not halt Active Record and Active Model
+    callback chains when a callback returns `false`; only when they are
+    explicitly halted with `throw(:abort)`.
 
     The terminator is *not* added when running `rake rails:update`, so returning
     `false` will still work on old apps ported to Rails 5, displaying a

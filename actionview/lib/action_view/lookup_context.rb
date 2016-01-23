@@ -1,4 +1,4 @@
-require 'thread_safe'
+require 'concurrent/map'
 require 'active_support/core_ext/module/remove_method'
 require 'active_support/core_ext/module/attribute_accessors'
 require 'action_view/template/resolver'
@@ -20,7 +20,7 @@ module ActionView
     mattr_accessor :registered_details
     self.registered_details = []
 
-    def self.register_detail(name, options = {}, &block)
+    def self.register_detail(name, &block)
       self.registered_details << name
       initialize = registered_details.map { |n| "@details[:#{n}] = details[:#{n}] || default_#{n}" }
 
@@ -55,19 +55,19 @@ module ActionView
     end
     register_detail(:formats) { ActionView::Base.default_formats || [:html, :text, :js, :css,  :xml, :json] }
     register_detail(:variants) { [] }
-    register_detail(:handlers){ Template::Handlers.extensions }
+    register_detail(:handlers) { Template::Handlers.extensions }
 
     class DetailsKey #:nodoc:
       alias :eql? :equal?
       alias :object_hash :hash
 
       attr_reader :hash
-      @details_keys = ThreadSafe::Cache.new
+      @details_keys = Concurrent::Map.new
 
       def self.get(details)
         if details[:formats]
           details = details.dup
-          details[:formats] &= Mime::SET.symbols
+          details[:formats] &= Template::Types.symbols
         end
         @details_keys[details] ||= new
       end

@@ -15,10 +15,10 @@ module Rails
       private
         def expand_patterns(patterns)
           patterns.map do |arg|
-            arg = arg.gsub(/:(\d+)?$/, '')
+            arg = arg.gsub(/(:\d+)+?$/, '')
             if Dir.exist?(arg)
               "#{arg}/**/*_test.rb"
-            elsif File.file?(arg)
+            else
               arg
             end
           end

@@ -130,11 +130,6 @@ module ActiveRecord
         assert_equal 'UTF-8', @conn.encoding
       end
 
-      def test_bind_value_substitute
-        bind_param = @conn.substitute_at('foo')
-        assert_equal Arel.sql('?'), bind_param.to_sql
-      end
-
       def test_exec_no_binds
         with_example_table 'id int, data string' do
           result = @conn.exec_query('SELECT id, data FROM ex')
@@ -284,9 +279,9 @@ module ActiveRecord
 
       def test_tables
         with_example_table do
-          assert_equal %w{ ex }, @conn.tables
+          ActiveSupport::Deprecation.silence { assert_equal %w{ ex }, @conn.tables }
           with_example_table 'id integer PRIMARY KEY AUTOINCREMENT, number integer', 'people' do
-            assert_equal %w{ ex people }.sort, @conn.tables.sort
+            ActiveSupport::Deprecation.silence { assert_equal %w{ ex people }.sort, @conn.tables.sort }
           end
         end
       end
@@ -294,10 +289,12 @@ module ActiveRecord
       def test_tables_logs_name
         sql = <<-SQL
           SELECT name FROM sqlite_master
-          WHERE (type = 'table' OR type = 'view') AND NOT name = 'sqlite_sequence'
+          WHERE type IN ('table','view') AND name <> 'sqlite_sequence'
         SQL
         assert_logged [[sql.squish, 'SCHEMA', []]] do
-          @conn.tables('hello')
+          ActiveSupport::Deprecation.silence do
+            @conn.tables('hello')
+          end
         end
       end
 
@@ -313,11 +310,12 @@ module ActiveRecord
         with_example_table do
           sql = <<-SQL
             SELECT name FROM sqlite_master
-            WHERE (type = 'table' OR type = 'view')
-            AND NOT name = 'sqlite_sequence' AND name = \"ex\"
+            WHERE type IN ('table','view') AND name <> 'sqlite_sequence' AND name = 'ex'
           SQL
           assert_logged [[sql.squish, 'SCHEMA', []]] do
-            assert @conn.table_exists?('ex')
+            ActiveSupport::Deprecation.silence do
+              assert @conn.table_exists?('ex')
+            end
           end
         end
       end

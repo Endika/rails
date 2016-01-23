@@ -7,6 +7,13 @@ require 'action_controller/template_assertions'
 require 'rails-dom-testing'
 
 module ActionController
+  # :stopdoc:
+  class Metal
+    include Testing::Functional
+  end
+
+  # ActionController::TestCase will be deprecated and moved to a gem in Rails 5.1.
+  # Please use ActionDispatch::IntegrationTest going forward.
   class TestRequest < ActionDispatch::TestRequest #:nodoc:
     DEFAULT_ENV = ActionDispatch::TestRequest::DEFAULT_ENV.dup
     DEFAULT_ENV.delete 'PATH_INFO'
@@ -33,6 +40,9 @@ module ActionController
 
       self.session = session
       self.session_options = TestSession::DEFAULT_OPTIONS
+      @custom_param_parsers = {
+        Mime[:xml] => lambda { |raw_post| Hash.from_xml(raw_post)['hash'] }
+      }
     end
 
     def query_string=(string)
@@ -74,23 +84,18 @@ module ActionController
             set_header k, 'application/x-www-form-urlencoded'
           end
 
-          # FIXME: setting `request_parametes` is normally handled by the
-          # params parser middleware, and we should remove this roundtripping
-          # when we switch to caling `call` on the controller
-
-          case content_mime_type.ref
+          case content_mime_type.to_sym
+          when nil
+            raise "Unknown Content-Type: #{content_type}"
           when :json
             data = ActiveSupport::JSON.encode(non_path_parameters)
-            params = ActiveSupport::JSON.decode(data).with_indifferent_access
-            self.request_parameters = params
           when :xml
             data = non_path_parameters.to_xml
-            params = Hash.from_xml(data)['hash']
-            self.request_parameters = params
           when :url_encoded_form
             data = non_path_parameters.to_query
           else
-            raise "Unknown Content-Type: #{content_type}"
+            @custom_param_parsers[content_mime_type] = ->(_) { non_path_parameters }
+            data = non_path_parameters.to_query
           end
         end
 
@@ -133,6 +138,12 @@ module ActionController
         "multipart/form-data; boundary=#{Rack::Test::MULTIPART_BOUNDARY}"
       end
     end.new
+
+    private
+
+    def params_parsers
+      super.merge @custom_param_parsers
+    end
   end
 
   class LiveTestResponse < Live::Response
@@ -206,11 +217,11 @@ module ActionController
   #       # Simulate a POST response with the given HTTP parameters.
   #       post(:create, params: { book: { title: "Love Hina" }})
   #
-  #       # Assert that the controller tried to redirect us to
+  #       # Asserts that the controller tried to redirect us to
   #       # the created book's URI.
   #       assert_response :found
   #
-  #       # Assert that the controller really put the book in the database.
+  #       # Asserts that the controller really put the book in the database.
   #       assert_not_nil Book.find_by(title: "Love Hina")
   #     end
   #   end
@@ -398,7 +409,7 @@ module ActionController
         MSG
 
         @request.env['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
-        @request.env['HTTP_ACCEPT'] ||= [Mime::JS, Mime::HTML, Mime::XML, 'text/xml', Mime::ALL].join(', ')
+        @request.env['HTTP_ACCEPT'] ||= [Mime[:js], Mime[:html], Mime[:xml], 'text/xml', '*/*'].join(', ')
         __send__(*args).tap do
           @request.env.delete 'HTTP_X_REQUESTED_WITH'
           @request.env.delete 'HTTP_ACCEPT'
@@ -448,16 +459,16 @@ module ActionController
             parameters = nil
           end
 
-          if parameters.present? || session.present? || flash.present?
+          if parameters || session || flash
             non_kwarg_request_warning
           end
         end
 
-        if body.present?
+        if body
           @request.set_header 'RAW_POST_DATA', body
         end
 
-        if http_method.present?
+        if http_method
           http_method = http_method.to_s.upcase
         else
           http_method = "GET"
@@ -465,15 +476,11 @@ module ActionController
 
         parameters ||= {}
 
-        if format.present?
+        if format
           parameters[:format] = format
         end
 
         @html_document = nil
-
-        unless @controller.respond_to?(:recycle!)
-          @controller.extend(Testing::Functional)
-        end
 
         self.cookies.update @request.cookies
         self.cookies.update_cookies_from_jar
@@ -501,24 +508,23 @@ module ActionController
         if xhr
           @request.set_header 'HTTP_X_REQUESTED_WITH', 'XMLHttpRequest'
           @request.fetch_header('HTTP_ACCEPT') do |k|
-            @request.set_header k, [Mime::JS, Mime::HTML, Mime::XML, 'text/xml', Mime::ALL].join(', ')
+            @request.set_header k, [Mime[:js], Mime[:html], Mime[:xml], 'text/xml', '*/*'].join(', ')
           end
         end
-
-        @controller.request  = @request
-        @controller.response = @response
 
         @request.fetch_header("SCRIPT_NAME") do |k|
           @request.set_header k, @controller.config.relative_url_root
         end
 
         @controller.recycle!
-        @controller.process(action)
+        @controller.dispatch(action, @request, @response)
+        @request = @controller.request
+        @response = @controller.response
 
         @request.delete_header 'HTTP_COOKIE'
 
         if @request.have_cookie_jar?
-          unless @response.committed?
+          unless @request.cookie_jar.committed?
             @request.cookie_jar.write(@response)
             self.cookies.update(@request.cookie_jar.instance_variable_get(:@cookies))
           end
@@ -581,7 +587,7 @@ module ActionController
       end
 
       def build_response(klass)
-        klass.new
+        klass.create
       end
 
       included do
@@ -655,4 +661,5 @@ module ActionController
 
     include Behavior
   end
+  # :startdoc:
 end

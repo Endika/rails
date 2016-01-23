@@ -1,5 +1,3 @@
-# encoding: UTF-8
-
 module ActionDispatch
   # The routing module provides URL rewriting in native Ruby. It's a way to
   # redirect incoming requests to controllers and actions. This replaces
@@ -55,7 +53,7 @@ module ActionDispatch
   #     resources :posts, :comments
   #   end
   #
-  # Alternately, you can add prefixes to your path without using a separate
+  # Alternatively, you can add prefixes to your path without using a separate
   # directory by using +scope+. +scope+ takes additional options which
   # apply to all enclosed routes.
   #
@@ -148,6 +146,7 @@ module ActionDispatch
   #     get 'geocode/:postalcode' => :show, constraints: {
   #       postalcode: /\d{5}(-\d{4})?/
   #     }
+  #   end
   #
   # Constraints can include the 'ignorecase' and 'extended syntax' regular
   # expression modifiers:
@@ -238,7 +237,7 @@ module ActionDispatch
   #
   # == View a list of all your routes
   #
-  #   rake routes
+  #   rails routes
   #
   # Target specific controllers by prefixing the command with <tt>CONTROLLER=x</tt>.
   #
